@@ -1,0 +1,46 @@
+import React from 'react';
+import { Home, Heart, Calendar, Image, Send, Gift } from 'lucide-react';
+
+interface BottomNavProps {
+  activeSection?: string;
+}
+
+export const BottomNav: React.FC<BottomNavProps> = () => {
+  const scrollTo = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const navItems = [
+    { id: 'hero', label: 'Beranda', icon: Home },
+    { id: 'couple', label: 'Mempelai', icon: Heart },
+    { id: 'events', label: 'Acara', icon: Calendar },
+    { id: 'gallery', label: 'Galeri', icon: Image },
+    { id: 'rsvp', label: 'RSVP', icon: Send },
+    { id: 'gifts', label: 'Hadiah', icon: Gift },
+  ];
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pointer-events-none pb-2">
+      <nav className="pointer-events-auto w-full max-w-[430px] mx-4 py-2 px-3 rounded-2xl bg-[#0e2720]/95 backdrop-blur-md border border-[#C5A15B]/50 shadow-2xl flex items-center justify-around">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.id}
+              onClick={() => scrollTo(item.id)}
+              className="flex flex-col items-center justify-center p-1.5 text-[#E0C782]/70 hover:text-[#E0C782] active:scale-95 transition-all group"
+            >
+              <Icon className="w-4 h-4 group-hover:scale-110 transition-transform text-[#C5A15B]" />
+              <span className="text-[10px] tracking-tight mt-0.5 group-hover:font-medium">
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+    </div>
+  );
+};

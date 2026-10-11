@@ -1,0 +1,6 @@
+{
+  "name": "Javanese Royal Wedding Invitation & Guest Management",
+  "description": "Exclusive Javanese Royal Wedding Invitation platform with personalized guest invitations, RSVP tracking, and complete administrative dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
