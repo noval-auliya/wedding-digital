@@ -29,6 +29,11 @@ export const AdminEventsPage: React.FC<AdminEventsPageProps> = ({ onNotify }) =>
 
   useEffect(() => {
     loadData();
+    const handleStorageUpdate = (event: Event) => {
+      if ((event as CustomEvent<{ key: string }>).detail.key === 'javanese_wedding_events_v1') loadData();
+    };
+    window.addEventListener('wedding-storage-updated', handleStorageUpdate);
+    return () => window.removeEventListener('wedding-storage-updated', handleStorageUpdate);
   }, []);
 
   const openAddModal = () => {
@@ -203,8 +208,14 @@ export const AdminEventsPage: React.FC<AdminEventsPageProps> = ({ onNotify }) =>
 
       {/* Add / Edit Event Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in">
+        <div
+          onClick={() => setIsModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <h2 className="font-royal text-base font-bold text-[#173D32]">
                 {editingEvent ? 'Edit Rangkaian Acara' : 'Tambah Acara Baru'}

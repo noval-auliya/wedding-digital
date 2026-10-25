@@ -17,13 +17,12 @@ import { AdminGalleryPage } from './pages/admin/AdminGalleryPage';
 import { AdminLoveStoryPage } from './pages/admin/AdminLoveStoryPage';
 import { AdminGiftsPage } from './pages/admin/AdminGiftsPage';
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
-import { AdminCheckInPage } from './pages/admin/AdminCheckInPage';
 import { ToastContainer, ToastMessage } from './components/common/Toast';
-import { Shield, Sparkles } from 'lucide-react';
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState<string>(window.location.pathname);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [authReady, setAuthReady] = useState(false);
 
   // Sync with browser back/forward buttons
   useEffect(() => {
@@ -31,9 +30,23 @@ export default function App() {
       setCurrentPath(window.location.pathname);
     };
 
+    const handleStorageError = (event: Event) => {
+      const detail = (event as CustomEvent<{ message: string }>).detail;
+      addNotification(
+        `Gagal menyinkronkan data Firebase${detail?.message ? `: ${detail.message}` : '.'}`,
+        'error',
+      );
+    };
+
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('wedding-storage-error', handleStorageError);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('wedding-storage-error', handleStorageError);
+    };
   }, []);
+
+  useEffect(() => authService.subscribe(() => setAuthReady(true)), []);
 
   const navigate = (path: string) => {
     window.history.pushState({}, '', path);
@@ -67,22 +80,13 @@ export default function App() {
           onNavigate={navigate}
           onNotify={addNotification}
         />
-        {/* Subtle admin shortcut for testing */}
-        <div className="fixed top-3 right-3 z-30">
-          <button
-            onClick={() => navigate('/admin/login')}
-            title="Portal Administrator"
-            className="p-2 rounded-full bg-[#173D32]/80 hover:bg-[#173D32] border border-[#C5A15B]/50 text-[#E0C782] shadow-lg backdrop-blur-sm transition-all opacity-40 hover:opacity-100"
-          >
-            <Shield className="w-3.5 h-3.5" />
-          </button>
-        </div>
       </>
     );
   }
 
   // 2. Admin Login: /admin/login
   if (cleanPath === '/admin/login') {
+    if (!authReady) return null;
     if (authService.isAuthenticated()) {
       navigate('/admin');
       return null;
@@ -102,6 +106,7 @@ export default function App() {
 
   // 3. Admin Dashboard & Sub-pages: /admin or /admin/*
   if (cleanPath === '/admin' || cleanPath.startsWith('/admin/')) {
+    if (!authReady) return null;
     // Route protection check
     if (!authService.isAuthenticated()) {
       navigate('/admin/login');
@@ -112,7 +117,6 @@ export default function App() {
     let currentTab: AdminTab = 'dashboard';
     if (cleanPath === '/admin/content') currentTab = 'content';
     else if (cleanPath === '/admin/guests') currentTab = 'guests';
-    else if (cleanPath === '/admin/checkin') currentTab = 'checkin';
     else if (cleanPath === '/admin/rsvp') currentTab = 'rsvp';
     else if (cleanPath === '/admin/events') currentTab = 'events';
     else if (cleanPath === '/admin/gallery') currentTab = 'gallery';
@@ -125,10 +129,15 @@ export default function App() {
       else navigate(`/admin/${tab}`);
     };
 
-    const handleLogout = () => {
-      authService.logout();
-      addNotification('Anda telah keluar dari sesi administrator.');
-      navigate('/admin/login');
+    const handleLogout = async () => {
+      try {
+        await authService.logout();
+        addNotification('Anda telah keluar dari sesi administrator.');
+        navigate('/admin/login');
+      } catch (error) {
+        console.error('Firebase sign-out failed:', error);
+        addNotification('Gagal keluar dari akun Firebase. Silakan coba lagi.', 'error');
+      }
     };
 
     return (
@@ -158,9 +167,6 @@ export default function App() {
               onNotify={addNotification}
               onOpenInvitation={(slug) => navigate(`/invitation/${slug}`)}
             />
-          )}
-          {currentTab === 'checkin' && (
-            <AdminCheckInPage onNotify={addNotification} />
           )}
           {currentTab === 'rsvp' && (
             <AdminRSVPPage
@@ -196,19 +202,6 @@ export default function App() {
         onNavigate={navigate}
         onNotify={addNotification}
       />
-      {/* Floating admin portal launcher button for easy access */}
-      <div className="fixed top-3 right-3 z-30">
-        <button
-          onClick={() => navigate('/admin/login')}
-          title="Masuk ke Pranatan Admin"
-          className="p-2 rounded-full bg-[#173D32]/85 hover:bg-[#173D32] border border-[#C5A15B]/50 text-[#E0C782] shadow-lg backdrop-blur-sm transition-all opacity-40 hover:opacity-100 flex items-center gap-1.5 px-3"
-        >
-          <Shield className="w-3.5 h-3.5 text-[#C5A15B]" />
-          <span className="text-[10px] font-semibold tracking-wider uppercase hidden sm:inline">
-            Admin
-          </span>
-        </button>
-      </div>
     </>
   );
 }

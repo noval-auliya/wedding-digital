@@ -26,6 +26,20 @@ body {
   font-family: 'Cormorant Garamond', Georgia, serif;
 }
 
+.page-reveal {
+  opacity: 0;
+  translate: 0 22px;
+  transition:
+    opacity 550ms ease,
+    translate 650ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--page-reveal-delay, 0ms);
+}
+
+.page-reveal.is-visible {
+  opacity: 1;
+  translate: 0 0;
+}
+
 /* Subtle batik / songket background texture */
 .bg-batik-subtle {
   background-color: #F8F3E8;
@@ -50,6 +64,230 @@ body {
 
 .gold-border {
   border-color: #c5a15b;
+}
+
+.gallery-slide-next {
+  animation: gallery-slide-next 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.gallery-slide-previous {
+  animation: gallery-slide-previous 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes gallery-slide-next {
+  from {
+    opacity: 0.5;
+    transform: translateX(24px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes gallery-slide-previous {
+  from {
+    opacity: 0.5;
+    transform: translateX(-24px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.invitation-icon-ripple {
+  position: relative;
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: 1px solid #173d3266;
+  border-radius: 50%;
+}
+
+.invitation-icon-ripple::before,
+.invitation-icon-ripple::after {
+  position: absolute;
+  inset: -1px;
+  border: 1px solid #173d32;
+  border-radius: 50%;
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  animation: invitation-icon-ripple 1.8s ease-out infinite;
+}
+
+.invitation-icon-ripple::after {
+  animation-delay: 0.9s;
+}
+
+@keyframes invitation-icon-ripple {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.9);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+.gate-opening {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+  perspective: 1400px;
+}
+
+.gate-door {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.5%;
+  overflow: hidden;
+  color: #e0c782;
+  background:
+    linear-gradient(135deg, transparent 49.7%, #c5a15b14 50%, transparent 50.3%),
+    radial-gradient(ellipse at center, #173d32 0%, #0a1c17 78%);
+  box-shadow: inset 0 0 48px #0008;
+  backface-visibility: hidden;
+  animation-duration: 1.15s;
+  animation-timing-function: cubic-bezier(0.6, 0, 0.25, 1);
+  animation-fill-mode: forwards;
+}
+
+.gate-door-left {
+  left: 0;
+  transform-origin: left center;
+  border-right: 2px solid #c5a15b;
+  animation-name: gate-open-left;
+}
+
+.gate-door-right {
+  right: 0;
+  transform-origin: right center;
+  border-left: 2px solid #c5a15b;
+  animation-name: gate-open-right;
+}
+
+.gate-door-frame {
+  position: absolute;
+  inset: 16px 12px;
+  border: 1px solid #c5a15b66;
+}
+
+.gate-door-frame::before,
+.gate-door-frame::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 1px;
+  content: '';
+  background: linear-gradient(90deg, transparent, #e0c782, transparent);
+}
+
+.gate-door-frame::before {
+  top: 18px;
+}
+
+.gate-door-frame::after {
+  bottom: 18px;
+}
+
+.gate-door-emblem {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  color: #c5a15b;
+  font-size: 18px;
+  transform: translateX(-50%);
+}
+
+.gate-door-handle {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border: 1px solid #e0c782;
+  border-radius: 50%;
+  background: #c5a15b66;
+  box-shadow: 0 0 12px #c5a15b88;
+}
+
+.gate-door-left .gate-door-handle {
+  right: 16px;
+}
+
+.gate-door-right .gate-door-handle {
+  left: 16px;
+}
+
+.gate-door-logo {
+  position: absolute;
+  top: calc(50% - 100px);
+  left: 50%;
+  width: 56px;
+  height: auto;
+  filter: drop-shadow(0 2px 8px #0009);
+  transform: translateX(-50%);
+}
+
+.gate-door-name {
+  position: absolute;
+  top: 50%;
+  right: 24px;
+  left: 24px;
+  color: #e0c782;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: clamp(12px, 2vw, 18px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-shadow: 0 1px 8px #000;
+  transform: translateY(-50%);
+}
+
+@keyframes gate-open-left {
+  to {
+    transform: rotateY(-88deg);
+  }
+}
+
+@keyframes gate-open-right {
+  to {
+    transform: rotateY(88deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-reveal,
+  .page-reveal.is-visible {
+    opacity: 1;
+    translate: 0 0;
+    transition: none;
+  }
+
+  .gate-door {
+    animation-duration: 1ms;
+  }
+
+  .gallery-slide-next,
+  .gallery-slide-previous {
+    animation-duration: 1ms;
+  }
+
+  .invitation-icon-ripple::before,
+  .invitation-icon-ripple::after {
+    animation: none;
+  }
 }
 
 /* Custom scrollbar */

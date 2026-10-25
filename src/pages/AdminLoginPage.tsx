@@ -15,8 +15,9 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
   onNavigateHome,
   onNotify,
 }) => {
-  const [email, setEmail] = useState('admin@royalwedding.id');
-  const [password, setPassword] = useState('keraton2026');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -26,21 +27,15 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
     setErrorMessage('');
     setIsLoading(true);
 
-    const res = await authService.login(email, password);
+    const res = await authService.login(email, password, rememberMe);
     setIsLoading(false);
 
     if (res.success) {
-      onNotify('Sugeng rawuh! Berhasil masuk ke Pranatan Undangan.');
+      onNotify('Selamat datang! Anda berhasil masuk ke panel pengelolaan undangan.');
       onLoginSuccess();
     } else {
       setErrorMessage(res.error || 'Autentikasi gagal.');
     }
-  };
-
-  const fillDemoCredentials = () => {
-    setEmail('admin@royalwedding.id');
-    setPassword('keraton2026');
-    setErrorMessage('');
   };
 
   return (
@@ -62,20 +57,9 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
             Admin Wedding System
           </h1>
           <p className="text-xs text-[#E0C782]/70 font-serif-jawa italic mt-1">
-            Pengelolaan Serat Ulem & Data Tamu Undangan
+            Pengelolaan Undangan & Data Tamu
           </p>
           <RoyalDivider className="my-4" />
-        </div>
-
-        {/* Database Status indicator */}
-        <div className="mb-5 p-2.5 rounded-xl bg-[#0e2720]/80 border border-[#C5A15B]/30 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <Database className="w-3.5 h-3.5 text-[#C5A15B]" />
-            <span className="text-[#E0C782] font-medium">Mode Basis Data:</span>
-          </div>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#C5A15B]/20 text-[#E0C782] border border-[#C5A15B]/40">
-            {weddingStorage.isSupabaseConfigured() ? 'Supabase Connected' : 'Persistent Local Engine'}
-          </span>
         </div>
 
         {errorMessage && (
@@ -87,7 +71,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs uppercase tracking-wider text-[#E0C782] font-semibold mb-1.5">
-              Email Administrator
+              Email
             </label>
             <div className="relative">
               <input
@@ -95,7 +79,8 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="admin@royalwedding.id"
+                autoComplete="username"
+                placeholder="Masukkan email anda"
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-xs bg-[#0e2720] border border-[#C5A15B]/40 text-[#F8F3E8] placeholder-[#F8F3E8]/30 focus:outline-none focus:border-[#C5A15B] transition-all"
               />
               <Mail className="w-4 h-4 text-[#C5A15B] absolute left-3 top-3 pointer-events-none" />
@@ -104,7 +89,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
 
           <div>
             <label className="block text-xs uppercase tracking-wider text-[#E0C782] font-semibold mb-1.5">
-              Kata Sandi
+              Password
             </label>
             <div className="relative">
               <input
@@ -112,6 +97,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
                 placeholder="••••••••"
                 className="w-full pl-9 pr-10 py-2.5 rounded-xl text-xs bg-[#0e2720] border border-[#C5A15B]/40 text-[#F8F3E8] placeholder-[#F8F3E8]/30 focus:outline-none focus:border-[#C5A15B] transition-all"
               />
@@ -125,6 +111,16 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
               </button>
             </div>
           </div>
+
+          <label className="flex items-center gap-2 text-xs text-[#F8F3E8]/80 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(event) => setRememberMe(event.target.checked)}
+              className="h-4 w-4 accent-[#C5A15B]"
+            />
+            <span>Ingat saya (tetap masuk di perangkat ini)</span>
+          </label>
 
           <button
             type="submit"
@@ -141,13 +137,6 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
         </form>
 
         <div className="mt-5 pt-4 border-t border-[#C5A15B]/20 flex items-center justify-between text-xs">
-          <button
-            type="button"
-            onClick={fillDemoCredentials}
-            className="text-[11px] text-[#C5A15B] hover:underline"
-          >
-            Gunakan Akun Admin Bawaan
-          </button>
           <button
             type="button"
             onClick={onNavigateHome}

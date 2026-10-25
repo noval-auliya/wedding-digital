@@ -19,6 +19,7 @@ export const AdminGiftsPage: React.FC<AdminGiftsPageProps> = ({ onNotify }) => {
   const [description, setDescription] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [isPublished, setIsPublished] = useState(true);
+  const [displayOrder, setDisplayOrder] = useState('1');
 
   const loadData = () => {
     setGifts(weddingStorage.getGifts());
@@ -26,16 +27,22 @@ export const AdminGiftsPage: React.FC<AdminGiftsPageProps> = ({ onNotify }) => {
 
   useEffect(() => {
     loadData();
+    const handleStorageUpdate = (event: Event) => {
+      if ((event as CustomEvent<{ key: string }>).detail.key === 'javanese_wedding_gifts_v1') loadData();
+    };
+    window.addEventListener('wedding-storage-updated', handleStorageUpdate);
+    return () => window.removeEventListener('wedding-storage-updated', handleStorageUpdate);
   }, []);
 
   const openAddModal = () => {
     setEditingGift(null);
     setBankName('BCA (Bank Central Asia)');
-    setAccountHolder('Dimas Arya Daniswara');
+    setAccountHolder('Muhammad Noval Nur Auliya');
     setAccountNumber('');
     setDescription('Amplop Digital');
     setDeliveryAddress('');
     setIsPublished(true);
+    setDisplayOrder(String(gifts.length + 1));
     setIsModalOpen(true);
   };
 
@@ -47,6 +54,7 @@ export const AdminGiftsPage: React.FC<AdminGiftsPageProps> = ({ onNotify }) => {
     setDescription(gift.description || '');
     setDeliveryAddress(gift.deliveryAddress || '');
     setIsPublished(gift.isPublished);
+    setDisplayOrder(String(gift.displayOrder));
     setIsModalOpen(true);
   };
 
@@ -64,6 +72,7 @@ export const AdminGiftsPage: React.FC<AdminGiftsPageProps> = ({ onNotify }) => {
       accountNumber: accountNumber.trim(),
       description: description.trim(),
       deliveryAddress: deliveryAddress.trim() || undefined,
+      displayOrder: Math.max(1, Number.parseInt(displayOrder, 10) || 1),
       isPublished,
     });
 
@@ -88,7 +97,7 @@ export const AdminGiftsPage: React.FC<AdminGiftsPageProps> = ({ onNotify }) => {
             Kelola Rekening & Hadiah Pernikahan
           </h1>
           <p className="text-xs text-[#2c3e35]/80 font-serif-jawa italic mt-0.5">
-            Atur rekening bank, e-wallet, QRIS, serta alamat pengiriman tanda tresna
+            Atur rekening bank, dompet digital, QRIS, serta alamat pengiriman tanda kasih
           </p>
         </div>
 
@@ -119,11 +128,16 @@ export const AdminGiftsPage: React.FC<AdminGiftsPageProps> = ({ onNotify }) => {
                   )}
                   {g.bankName}
                 </span>
-                {!g.isPublished && (
-                  <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.2 rounded">
-                    Disembunyikan
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] bg-[#FAF6EE] text-[#997838] px-1.5 py-0.5 rounded">
+                    Urutan {g.displayOrder}
                   </span>
-                )}
+                  {!g.isPublished && (
+                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.2 rounded">
+                      Disembunyikan
+                    </span>
+                  )}
+                </div>
               </div>
 
               {g.deliveryAddress ? (
@@ -164,8 +178,14 @@ export const AdminGiftsPage: React.FC<AdminGiftsPageProps> = ({ onNotify }) => {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in">
+        <div
+          onClick={() => setIsModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <h2 className="font-royal text-base font-bold text-[#173D32]">
                 {editingGift ? 'Edit Rekening / Hadiah' : 'Tambah Rekening Hadiah'}
@@ -220,6 +240,22 @@ export const AdminGiftsPage: React.FC<AdminGiftsPageProps> = ({ onNotify }) => {
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">Urutan Tampil</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  value={displayOrder}
+                  onChange={(e) => setDisplayOrder(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Angka lebih kecil akan ditampilkan lebih dahulu.
+                </p>
               </div>
 
               <div>

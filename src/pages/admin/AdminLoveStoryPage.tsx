@@ -25,6 +25,11 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
 
   useEffect(() => {
     loadData();
+    const handleStorageUpdate = (event: Event) => {
+      if ((event as CustomEvent<{ key: string }>).detail.key === 'javanese_wedding_story_v1') loadData();
+    };
+    window.addEventListener('wedding-storage-updated', handleStorageUpdate);
+    return () => window.removeEventListener('wedding-storage-updated', handleStorageUpdate);
   }, []);
 
   const openAddModal = () => {
@@ -82,7 +87,7 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-royal text-2xl font-bold text-[#173D32]">
-            Kelola Love Story (Lelakon Tresna)
+            Kelola Kisah Cinta
           </h1>
           <p className="text-xs text-[#2c3e35]/80 font-serif-jawa italic mt-0.5">
             Susun perjalanan pertemuan, proses lamaran hingga ikatan suci
@@ -98,7 +103,7 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
         </button>
       </div>
 
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-4 w-full">
         {stories.map((story) => (
           <div
             key={story.id}
@@ -148,8 +153,14 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in">
+        <div
+          onClick={() => setIsModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <h2 className="font-royal text-base font-bold text-[#173D32]">
                 {editingStory ? 'Edit Momen Cinta' : 'Tambah Momen Kisah Kasih'}
@@ -196,10 +207,10 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
               </div>
 
               <div>
-                <label className="block text-gray-700 font-semibold mb-1">URL Foto Kenangan (Opsional)</label>
+                <label className="block text-gray-700 font-semibold mb-1">Path / URL Foto Kenangan (Opsional)</label>
                 <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/..."
+                  type="text"
+                  placeholder="/images/foto-kenangan.jpg atau https://..."
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-gray-300 font-mono text-[11px] focus:outline-none"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, X, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { RoyalDivider } from '../common/GununganIcon';
 import { GalleryImage } from '../../types/wedding';
@@ -10,6 +10,34 @@ interface GallerySectionProps {
 export const GallerySection: React.FC<GallerySectionProps> = ({ images }) => {
   const publishedImages = images.filter((img) => img.isPublished);
   const [activeModalIndex, setActiveModalIndex] = useState<number | null>(null);
+  const [slideDirection, setSlideDirection] = useState<'next' | 'previous'>('next');
+
+  useEffect(() => {
+    if (activeModalIndex === null) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        setSlideDirection('next');
+        setActiveModalIndex((currentIndex) =>
+          currentIndex === null ? null : (currentIndex + 1) % publishedImages.length
+        );
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        setSlideDirection('previous');
+        setActiveModalIndex((currentIndex) =>
+          currentIndex === null
+            ? null
+            : (currentIndex - 1 + publishedImages.length) % publishedImages.length
+        );
+      } else if (event.key === 'Escape') {
+        setActiveModalIndex(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeModalIndex, publishedImages.length]);
 
   if (publishedImages.length === 0) return null;
 
@@ -23,18 +51,20 @@ export const GallerySection: React.FC<GallerySectionProps> = ({ images }) => {
 
   const nextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (activeModalIndex !== null) {
-      setActiveModalIndex((activeModalIndex + 1) % publishedImages.length);
-    }
+    setSlideDirection('next');
+    setActiveModalIndex((currentIndex) =>
+      currentIndex === null ? null : (currentIndex + 1) % publishedImages.length
+    );
   };
 
   const prevImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (activeModalIndex !== null) {
-      setActiveModalIndex(
-        (activeModalIndex - 1 + publishedImages.length) % publishedImages.length
-      );
-    }
+    setSlideDirection('previous');
+    setActiveModalIndex((currentIndex) =>
+      currentIndex === null
+        ? null
+        : (currentIndex - 1 + publishedImages.length) % publishedImages.length
+    );
   };
 
   return (
@@ -65,7 +95,11 @@ export const GallerySection: React.FC<GallerySectionProps> = ({ images }) => {
             <img
               src={img.imageUrl}
               alt={img.caption || 'Prewedding Photo'}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              className={`w-full h-full ${img.imageFit === 'cover' ? 'object-cover group-hover:scale-105' : 'object-contain'} transition-transform duration-500`}
+              style={{
+                objectPosition: `${img.imagePositionX ?? 50}% ${img.imagePositionY ?? 50}%`,
+                transformOrigin: `${img.imagePositionX ?? 50}% ${img.imagePositionY ?? 50}%`,
+              }}
               loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0e2720]/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
@@ -112,9 +146,10 @@ export const GallerySection: React.FC<GallerySectionProps> = ({ images }) => {
           >
             <div className="relative rounded-2xl overflow-hidden border border-[#C5A15B]/50 shadow-2xl max-h-[75vh]">
               <img
+                key={publishedImages[activeModalIndex].id}
                 src={publishedImages[activeModalIndex].imageUrl}
                 alt={publishedImages[activeModalIndex].caption}
-                className="w-full h-auto max-h-[70vh] object-contain"
+                className={`w-full h-auto max-h-[70vh] object-contain gallery-slide-${slideDirection}`}
               />
             </div>
             {publishedImages[activeModalIndex].caption && (

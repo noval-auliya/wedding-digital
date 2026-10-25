@@ -1,11 +1,20 @@
-import React from 'react';
-import { Home, Heart, Calendar, Image, Send, Gift } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Home, Heart, Calendar, Image, Send, Gift, ChevronDown } from 'lucide-react';
+import { WeddingSettings } from '../../types/wedding';
 
 interface BottomNavProps {
-  activeSection?: string;
+  features: WeddingSettings['features'];
 }
 
-export const BottomNav: React.FC<BottomNavProps> = () => {
+export const BottomNav: React.FC<BottomNavProps> = ({ features }) => {
+  const [isAtTop, setIsAtTop] = useState(() => window.scrollY < 80);
+
+  useEffect(() => {
+    const updateScrollState = () => setIsAtTop(window.scrollY < 80);
+    window.addEventListener('scroll', updateScrollState, { passive: true });
+    return () => window.removeEventListener('scroll', updateScrollState);
+  }, []);
+
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (el) {
@@ -17,13 +26,21 @@ export const BottomNav: React.FC<BottomNavProps> = () => {
     { id: 'hero', label: 'Beranda', icon: Home },
     { id: 'couple', label: 'Mempelai', icon: Heart },
     { id: 'events', label: 'Acara', icon: Calendar },
-    { id: 'gallery', label: 'Galeri', icon: Image },
-    { id: 'rsvp', label: 'RSVP', icon: Send },
-    { id: 'gifts', label: 'Hadiah', icon: Gift },
+    ...(features.enableGallery ? [{ id: 'gallery', label: 'Galeri', icon: Image }] : []),
+    ...(features.enableWeddingGifts ? [{ id: 'gifts', label: 'Hadiah', icon: Gift }] : []),
+    ...(features.enableRSVP ? [{ id: 'rsvp', label: 'RSVP', icon: Send }] : []),
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pointer-events-none pb-2">
+    <div className="fixed bottom-0 left-0 right-0 z-40 flex flex-col items-center pointer-events-none pb-2">
+      {isAtTop && (
+        <div className="flex flex-col items-center text-[#C5A15B] mb-1">
+          <span className="text-[10px] tracking-widest uppercase font-serif-jawa italic text-[#E0C782]">
+            Gulir ke Bawah
+          </span>
+          <ChevronDown className="w-4 h-4 animate-bounce text-[#C5A15B]" />
+        </div>
+      )}
       <nav className="pointer-events-auto w-full max-w-[430px] mx-4 py-2 px-3 rounded-2xl bg-[#0e2720]/95 backdrop-blur-md border border-[#C5A15B]/50 shadow-2xl flex items-center justify-around">
         {navItems.map((item) => {
           const Icon = item.icon;

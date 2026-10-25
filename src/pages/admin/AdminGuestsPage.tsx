@@ -8,7 +8,6 @@ import {
   ExternalLink,
   Edit2,
   Trash2,
-  Download,
   Upload,
   Check,
   Phone,
@@ -20,6 +19,8 @@ import {
 } from 'lucide-react';
 import { weddingStorage } from '../../services/storage';
 import { Guest, GuestCategory, RSVPStatus, DeliveryStatus } from '../../types/wedding';
+import { ExportActions } from '../../components/admin/ExportActions';
+import { ExportFormat, exportRecords } from '../../utils/export';
 
 interface AdminGuestsPageProps {
   onNotify: (msg: string) => void;
@@ -66,6 +67,11 @@ export const AdminGuestsPage: React.FC<AdminGuestsPageProps> = ({
 
   useEffect(() => {
     loadData();
+    const handleStorageUpdate = (event: Event) => {
+      if ((event as CustomEvent<{ key: string }>).detail.key === 'javanese_wedding_guests_v1') loadData();
+    };
+    window.addEventListener('wedding-storage-updated', handleStorageUpdate);
+    return () => window.removeEventListener('wedding-storage-updated', handleStorageUpdate);
   }, []);
 
   const openAddModal = () => {
@@ -120,7 +126,6 @@ export const AdminGuestsPage: React.FC<AdminGuestsPageProps> = ({
         invitationStatus: formDelivery,
         adminNotes: formNotes.trim(),
         rsvpStatus: editingGuest ? editingGuest.rsvpStatus : 'Belum Mengonfirmasi',
-        attendeeCount: editingGuest ? editingGuest.attendeeCount : 0,
       });
 
       setIsAddEditModalOpen(false);
@@ -158,21 +163,21 @@ export const AdminGuestsPage: React.FC<AdminGuestsPageProps> = ({
     const link = getPersonalizedUrl(guest.slug);
     const message = `Yth. ${guest.fullName}${guest.institution ? ` (${guest.institution})` : ''},
 
-Kanthi lumunturing nugraha, kula sakulawarga ngaturaken serat ulem pawiwahan ageng anak-anak kula:
+Dengan memohon rahmat Tuhan, kami sekeluarga mengundang Anda untuk menghadiri pernikahan putra-putri kami:
 
 ${settings.brideNickname} & ${settings.groomNickname}
 
-Ingkang badhe kalampahan ing dinten ${new Date(settings.weddingDate).toLocaleDateString('id-ID', {
+Acara akan diselenggarakan pada ${new Date(settings.weddingDate).toLocaleDateString('id-ID', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
       year: 'numeric',
     })}.
 
-Kangge informasi jangkep saha konfirmasi rawuh (RSVP), katuran mbikak tautan serat ulem punika:
+Untuk informasi lengkap dan konfirmasi kehadiran, silakan buka tautan undangan berikut:
 ${link}
 
-Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
+Terima kasih atas perhatian dan doa Anda.`;
 
     navigator.clipboard.writeText(message).then(() => {
       let phoneClean = (guest.phone || '').replace(/\D/g, '');
@@ -187,30 +192,25 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
     });
   };
 
-  // CSV Export
-  const handleExportCSV = () => {
-    const headers = ['Nama Lengkap', 'Slug Undangan', 'Kategori', 'Instansi', 'No Telepon', 'Status Kirim', 'Status RSVP', 'Jumlah Pax', 'Tautan Undangan'];
+  const handleExport = async (format: ExportFormat) => {
+    const headers = ['Nama Lengkap', 'Slug Undangan', 'Kategori', 'Instansi', 'No Telepon', 'Status Kirim', 'Status RSVP', 'Tautan Undangan'];
     const rows = guests.map((g) => [
-      `"${g.fullName.replace(/"/g, '""')}"`,
-      `"${g.slug}"`,
-      `"${g.category}"`,
-      `"${(g.institution || '').replace(/"/g, '""')}"`,
-      `"${g.phone || ''}"`,
-      `"${g.invitationStatus}"`,
-      `"${g.rsvpStatus}"`,
-      g.attendeeCount,
-      `"${getPersonalizedUrl(g.slug)}"`,
+      g.fullName,
+      g.slug,
+      g.category,
+      g.institution || '',
+      g.phone || '',
+      g.invitationStatus,
+      g.rsvpStatus,
+      getPersonalizedUrl(g.slug),
     ]);
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `daftar_tamu_undangan_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    onNotify('Daftar tamu berhasil diunduh ke CSV.');
+    const filename = `daftar_tamu_undangan_${new Date().toISOString().split('T')[0]}`;
+    try {
+      await exportRecords(format, filename, 'Daftar Tamu Undangan', headers, rows);
+      onNotify(`Daftar tamu berhasil diunduh ke ${format.toUpperCase()}.`);
+    } catch {
+      onNotify(`Gagal mengekspor daftar tamu ke ${format.toUpperCase()}.`);
+    }
   };
 
   // Parse CSV text for Import
@@ -236,7 +236,7 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
         continue;
       }
       const fullName = cols[0];
-      const category = (['Keluarga', 'VIP', 'Teman', 'Rekan Kerja', 'Lainnya'].includes(cols[1])
+      const category = (['Keluarga', 'Teman', 'Rekan Kerja', 'VIP', 'Lainnya'].includes(cols[1])
         ? cols[1]
         : 'Teman') as GuestCategory;
       const institution = cols[2] || '';
@@ -251,7 +251,6 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
         slug: slugCandidate,
         invitationStatus: 'Belum Dikirim',
         rsvpStatus: 'Belum Mengonfirmasi',
-        attendeeCount: 0,
       });
     }
 
@@ -292,6 +291,8 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
 
   const totalPages = Math.ceil(sortedGuests.length / pageSize) || 1;
   const paginatedGuests = sortedGuests.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const firstVisibleGuest = filteredGuests.length ? (currentPage - 1) * pageSize + 1 : 0;
+  const lastVisibleGuest = Math.min(currentPage * pageSize, filteredGuests.length);
 
   return (
     <div className="space-y-6">
@@ -323,13 +324,7 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
             <span>Import CSV</span>
           </button>
 
-          <button
-            onClick={handleExportCSV}
-            className="py-2 px-3.5 rounded-xl bg-white border border-[#C5A15B] text-[#173D32] text-xs font-semibold flex items-center gap-1.5 hover:bg-[#FAF6EE] shadow-sm transition-all"
-          >
-            <Download className="w-3.5 h-3.5 text-[#C5A15B]" />
-            <span>Export CSV</span>
-          </button>
+          <ExportActions onExport={handleExport} label="Ekspor Tamu" />
         </div>
       </div>
 
@@ -361,9 +356,9 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
             >
               <option value="ALL">Semua Kategori</option>
               <option value="Keluarga">Keluarga</option>
-              <option value="VIP">VIP</option>
               <option value="Teman">Teman</option>
               <option value="Rekan Kerja">Rekan Kerja</option>
+              <option value="VIP">VIP</option>
               <option value="Lainnya">Lainnya</option>
             </select>
 
@@ -378,7 +373,6 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
               <option value="ALL">Semua Status RSVP</option>
               <option value="Hadir">Hadir</option>
               <option value="Tidak Hadir">Tidak Hadir</option>
-              <option value="Masih Ragu">Masih Ragu</option>
               <option value="Belum Mengonfirmasi">Belum Mengonfirmasi</option>
             </select>
 
@@ -427,6 +421,9 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
 
       {/* Guest Table */}
       <div className="rounded-2xl bg-white border border-[#C5A15B]/30 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 text-xs text-gray-600 border-b border-gray-100">
+          Menampilkan {firstVisibleGuest}–{lastVisibleGuest} dari {filteredGuests.length} data tamu
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#173D32] text-[#E0C782] font-royal uppercase tracking-wider text-[11px]">
@@ -527,8 +524,6 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
                         className={`px-2 py-0.5 rounded-full text-[10px] font-semibold inline-block ${
                           guest.rsvpStatus === 'Hadir'
                             ? 'bg-emerald-100 text-emerald-800'
-                            : guest.rsvpStatus === 'Masih Ragu'
-                            ? 'bg-amber-100 text-amber-800'
                             : guest.rsvpStatus === 'Tidak Hadir'
                             ? 'bg-red-100 text-red-800'
                             : 'bg-gray-100 text-gray-500'
@@ -536,11 +531,6 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
                       >
                         {guest.rsvpStatus}
                       </span>
-                      {guest.rsvpStatus === 'Hadir' && guest.attendeeCount > 0 && (
-                        <span className="text-[10px] text-gray-500 block mt-0.5">
-                          {guest.attendeeCount} Orang Hadir
-                        </span>
-                      )}
                     </td>
 
                     <td className="py-3.5 px-4 text-right">
@@ -616,8 +606,14 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
 
       {/* Add / Edit Guest Modal */}
       {isAddEditModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in">
+        <div
+          onClick={() => setIsAddEditModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <h2 className="font-royal text-base font-bold text-[#173D32]">
                 {editingGuest ? 'Perbarui Data Tamu' : 'Tambah Tamu Undangan Baru'}
@@ -670,9 +666,9 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
                     className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none"
                   >
                     <option value="Keluarga">Keluarga</option>
-                    <option value="VIP">VIP</option>
                     <option value="Teman">Teman</option>
                     <option value="Rekan Kerja">Rekan Kerja</option>
+                    <option value="VIP">VIP</option>
                     <option value="Lainnya">Lainnya</option>
                   </select>
                 </div>
@@ -761,8 +757,14 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
 
       {/* CSV Import Modal */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in">
+        <div
+          onClick={() => setIsImportModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="w-5 h-5 text-[#C5A15B]" />
@@ -785,7 +787,7 @@ Matur nuwun sanget awit saking sih kawigatosan saha pandonga panjenengan.`;
                   Nama Lengkap, Kategori, Instansi, No Telepon
                 </code>
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Kategori valid: Keluarga, VIP, Teman, Rekan Kerja, Lainnya. Baris pertama dianggap sebagai header.
+                  Kategori valid: Keluarga, Teman, Rekan Kerja, VIP, Lainnya. Baris pertama dianggap sebagai header.
                 </p>
               </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Settings,
   Save,
@@ -22,6 +22,16 @@ export const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({ onNotify }
   const [copiedSql, setCopiedSql] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  useEffect(() => {
+    const refreshSettings = (event: Event) => {
+      if ((event as CustomEvent<{ key: string }>).detail.key === 'javanese_wedding_settings_v1') {
+        setSettings(weddingStorage.getSettings());
+      }
+    };
+    window.addEventListener('wedding-storage-updated', refreshSettings);
+    return () => window.removeEventListener('wedding-storage-updated', refreshSettings);
+  }, []);
+
   const handleToggle = (key: keyof WeddingSettings['features']) => {
     setSettings((prev) => ({
       ...prev,
@@ -32,26 +42,40 @@ export const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({ onNotify }
     }));
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    weddingStorage.updateSettings(settings);
-    setTimeout(() => {
+    try {
+      const savedSettings = await weddingStorage.updateSettings(settings);
+      setSettings(savedSettings);
+      onNotify('Pengaturan website berhasil disimpan ke Firebase!');
+    } catch (error) {
+      console.error('Gagal menyimpan pengaturan website:', error);
+      onNotify(
+        error instanceof Error && error.message.includes('berbeda dari perubahan terakhir')
+          ? 'Isi pengaturan Firebase berubah saat proses simpan. Coba muat ulang halaman lalu simpan kembali.'
+          : 'Gagal memverifikasi penyimpanan pengaturan ke Firebase. Periksa koneksi dan Security Rules.',
+      );
+    } finally {
       setIsSaving(false);
-      onNotify('Pengaturan website berhasil diperbarui!');
-    }, 250);
+    }
   };
 
-  const handleResetDefaults = () => {
+  const handleResetDefaults = async () => {
     if (
       window.confirm(
         'PERINGATAN: Ini akan mereset seluruh data (konten, tamu, RSVP, acara) kembali ke data awal Keraton Ngayogyakarta. Lanjutkan?'
       )
     ) {
-      weddingStorage.resetToDefaults();
-      setSettings(weddingStorage.getSettings());
-      onNotify('Data berhasil direset ke nilai awal.');
-      window.location.reload();
+      try {
+        await weddingStorage.resetToDefaults();
+        setSettings(weddingStorage.getSettings());
+        onNotify('Data berhasil direset ke nilai awal.');
+        window.location.reload();
+      } catch {
+        setSettings(weddingStorage.getSettings());
+        onNotify('Reset Firebase gagal. Periksa koneksi dan Security Rules.');
+      }
     }
   };
 
@@ -201,14 +225,14 @@ CREATE POLICY "Public Read Guest By Slug" ON guests FOR SELECT USING (true);
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 w-full">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-royal text-2xl font-bold text-[#173D32]">
             Pengaturan Sistem & Database
           </h1>
           <p className="text-xs text-[#2c3e35]/80 font-serif-jawa italic mt-0.5">
-            Konfigurasi fitur website, timezone, dan panduan integrasi database produksi Supabase
+            Konfigurasi fitur website, timezone, dan panduan integrasi Firebase Firestore
           </p>
         </div>
 
@@ -240,7 +264,6 @@ CREATE POLICY "Public Read Guest By Slug" ON guests FOR SELECT USING (true);
             { key: 'enableLoveStory', label: 'Kisah Kasih (Love Story)', desc: 'Menampilkan linimasa perjalanan cinta mempelai' },
             { key: 'enableGallery', label: 'Galeri Foto Prewedding', desc: 'Menampilkan foto-foto dan lightbox viewer' },
             { key: 'enableMusicAutoplay', label: 'Putar Musik Otomatis Saat Dibuka', desc: 'Memulai lagu gamelan setelah tombol Buka Undangan diklik' },
-            { key: 'enableCheckInPass', label: 'Kartu Presensi QR Tamu (Digital Guest Pass)', desc: 'Menampilkan kartu QR code eksklusif untuk check-in meja resepsi' },
           ].map((item) => (
             <div
               key={item.key}
@@ -270,16 +293,6 @@ CREATE POLICY "Public Read Guest By Slug" ON guests FOR SELECT USING (true);
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-gray-700 font-semibold mb-1">Judul Website Undangan</label>
-            <input
-              type="text"
-              value={settings.weddingTitle}
-              onChange={(e) => setSettings({ ...settings, weddingTitle: e.target.value })}
-              className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none"
-            />
-          </div>
-
-          <div>
             <label className="block text-gray-700 font-semibold mb-1">Zona Waktu Acara</label>
             <select
               value={settings.timezone}
@@ -291,20 +304,33 @@ CREATE POLICY "Public Read Guest By Slug" ON guests FOR SELECT USING (true);
               <option value="Asia/Jayapura">WIT (Asia/Jayapura - UTC+9)</option>
             </select>
           </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-1">URL Gambar Favicon</label>
+            <input
+              type="text"
+              value={settings.faviconUrl || ''}
+              onChange={(e) => setSettings({ ...settings, faviconUrl: e.target.value })}
+              placeholder="https://.../favicon.png atau /images/favicon.png"
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">
+              Gunakan URL publik atau path gambar di folder public, misalnya /images/favicon.png.
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Production Supabase Integration Guide */}
+      {/* Firebase setup guide */}
       <div className="p-5 rounded-2xl bg-white border border-[#C5A15B]/40 shadow-sm space-y-4">
         <div className="flex items-center justify-between pb-2 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Database className="w-4 h-4 text-[#C5A15B]" />
             <h2 className="font-royal text-sm font-bold text-[#173D32]">
-              Status Persistensi & Supabase Production
+              Status Penyimpanan & Firebase Firestore
             </h2>
           </div>
           <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#C5A15B]/20 text-[#173D32] border border-[#C5A15B]/40">
-            {weddingStorage.isSupabaseConfigured() ? 'Supabase Terhubung' : 'Local Storage Engine'}
+            {weddingStorage.isFirebaseConfigured() ? 'Firebase dikonfigurasi' : 'Belum dikonfigurasi'}
           </span>
         </div>
 
@@ -313,41 +339,28 @@ CREATE POLICY "Public Read Guest By Slug" ON guests FOR SELECT USING (true);
             <AlertCircle className="w-4 h-4 text-[#997838] shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-[#173D32]">
-                Mode Penyimpanan Saat Ini: Local Storage Engine
+                Sinkronisasi cloud real-time
               </p>
               <p className="text-[11px] text-gray-600 mt-0.5">
-                Semua perubahan data (tamu, konten, jadwal, ucapan RSVP) tersimpan secara persisten di peramban Anda. Untuk sinkronisasi cloud antar perangkat (multi-device) secara real-time, Anda dapat menghubungkan proyek Supabase dengan menambahkan variabel lingkungan <code className="bg-white px-1 py-0.5 rounded border font-mono">VITE_SUPABASE_URL</code> dan <code className="bg-white px-1 py-0.5 rounded border font-mono">VITE_SUPABASE_ANON_KEY</code>.
+                {weddingStorage.isFirebaseConfigured()
+                  ? 'Firestore menjadi sumber data. Aplikasi hanya menampilkan data yang berhasil dimuat dari server dan tidak menyimpan data undangan secara persisten di browser.'
+                  : 'Salin .env.example menjadi .env.local, isi konfigurasi Firebase Web App, lalu mulai ulang server Vite. Tanpa konfigurasi, data tidak tersedia.'}
               </p>
             </div>
           </div>
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-gray-700">
-              Skrip SQL DDL Supabase (1-Click Schema):
-            </span>
-            <button
-              onClick={copySqlToClipboard}
-              className="py-1 px-2.5 rounded-lg border border-[#C5A15B] bg-white hover:bg-[#FAF6EE] text-xs font-semibold text-[#173D32] flex items-center gap-1.5 transition-all"
-            >
-              {copiedSql ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-emerald-700">Skrip Tersalin!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5 text-[#C5A15B]" />
-                  <span>Salin Skrip SQL</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          <pre className="p-3 rounded-xl bg-gray-900 text-gray-200 text-[10px] font-mono max-h-48 overflow-y-auto leading-relaxed border border-gray-700">
-            {supabaseSqlSchema}
-          </pre>
+          <p className="text-xs font-semibold text-gray-700 mb-2">Langkah aktivasi:</p>
+          <ol className="list-decimal pl-5 text-[11px] text-gray-600 space-y-1">
+            <li>Buat project Firebase dan aktifkan Cloud Firestore.</li>
+            <li>Daftarkan aplikasi Web, lalu salin nilainya ke file <code>.env.local</code>.</li>
+            <li>Atur Firestore Security Rules sebelum deployment agar data hanya dapat diakses sesuai kebutuhan.</li>
+            <li>Jalankan ulang server dan pastikan dokumen serta koleksi undangan sudah tersedia di Firestore.</li>
+          </ol>
+          <p className="mt-3 text-[11px] text-amber-800">
+            Akses baca publik pada koleksi guests dan rsvps juga membuka nomor telepon, catatan admin, penempatan meja, dan data RSVP ke siapa pun. Hapus atau pisahkan field sensitif sebelum membuka akses baca.
+          </p>
         </div>
       </div>
 
@@ -356,7 +369,7 @@ CREATE POLICY "Public Read Guest By Slug" ON guests FOR SELECT USING (true);
         <div>
           <h3 className="text-xs font-bold text-red-800">Kembalikan Data Bawaan (Reset)</h3>
           <p className="text-[11px] text-red-600 mt-0.5">
-            Menghapus data kustom dan mengembalikan data seed Keraton Ngayogyakarta Hadiningrat
+            Menghapus data kustom dan mengembalikan data seed awal
           </p>
         </div>
 

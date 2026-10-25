@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Send, CheckCircle2, UserCheck, MessageSquare, Clock, Heart } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Send, CheckCircle2, UserCheck, MessageSquare } from 'lucide-react';
 import { RoyalDivider, RoyalCornerOrnament } from '../common/GununganIcon';
-import { Guest, RSVP, RSVPStatus, WeddingSettings } from '../../types/wedding';
+import { Guest, RSVP, WeddingSettings } from '../../types/wedding';
 import { weddingStorage } from '../../services/storage';
-import { RoyalGuestPass } from '../common/RoyalGuestPass';
 
 interface RSVPSectionProps {
   guest: Guest | null;
@@ -14,98 +13,130 @@ interface RSVPSectionProps {
 
 export const RSVPSection: React.FC<RSVPSectionProps> = ({ guest, settings, onRSVPSubmitted, onNotify }) => {
   const [name, setName] = useState(guest ? guest.fullName : '');
-  const [status, setStatus] = useState<RSVPStatus>(
-    guest && guest.rsvpStatus !== 'Belum Mengonfirmasi' ? guest.rsvpStatus : 'Hadir'
-  );
-  const [attendeeCount, setAttendeeCount] = useState<number>(
-    guest?.attendeeCount && guest.attendeeCount > 0 ? guest.attendeeCount : 2
+  const [status, setStatus] = useState<'Hadir' | 'Tidak Hadir' | ''>(
+    guest?.rsvpStatus === 'Tidak Hadir' ? 'Tidak Hadir' : 'Hadir'
   );
   const [wishes, setWishes] = useState(guest?.wishes || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmittedSuccess, setIsSubmittedSuccess] = useState(false);
   const [wishesList, setWishesList] = useState<RSVP[]>([]);
+  const [likingWishIds, setLikingWishIds] = useState<Set<string>>(() => new Set());
+  const [likedWishIds, setLikedWishIds] = useState<Set<string>>(() => new Set());
+  const submissionInProgress = useRef(false);
 
   const loadWishes = () => {
-    const all = weddingStorage.getRSVPs();
-    setWishesList(all.filter((r) => r.wishes && r.wishes.trim().length > 0));
+    setWishesList(weddingStorage.getPublicWishes());
   };
 
   useEffect(() => {
     loadWishes();
+    const handleStorageUpdate = (event: Event) => {
+      const key = (event as CustomEvent<{ key: string }>).detail.key;
+      if (key === 'javanese_wedding_public_wishes_v1') loadWishes();
+    };
+    window.addEventListener('wedding-storage-updated', handleStorageUpdate);
+    return () => window.removeEventListener('wedding-storage-updated', handleStorageUpdate);
   }, []);
 
   useEffect(() => {
     if (guest) {
       setName(guest.fullName);
-      if (guest.rsvpStatus !== 'Belum Mengonfirmasi') {
-        setStatus(guest.rsvpStatus);
-      }
-      if (guest.attendeeCount > 0) {
-        setAttendeeCount(guest.attendeeCount);
-      }
+      if (guest.rsvpStatus === 'Hadir' || guest.rsvpStatus === 'Tidak Hadir') setStatus(guest.rsvpStatus);
       if (guest.wishes) {
         setWishes(guest.wishes);
       }
     }
-  }, [guest]);
+  }, [guest?.slug]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submissionInProgress.current) return;
     if (!name.trim()) {
       onNotify('Silakan lengkapi nama Anda.');
       return;
     }
+    if (!status) {
+      onNotify('Silakan pilih konfirmasi kehadiran Anda.');
+      return;
+    }
 
+    submissionInProgress.current = true;
     setIsSubmitting(true);
 
     try {
-      weddingStorage.submitRSVP({
+      await weddingStorage.submitRSVP({
         guestSlug: guest?.slug,
         guestName: name.trim(),
         attendanceStatus: status,
-        attendeeCount: status === 'Hadir' ? Number(attendeeCount) : 0,
-        wishes: wishes.trim(),
+        wishes: settings.features.enableGuestWishes ? wishes.trim() : '',
       });
 
       setIsSubmitting(false);
+      setName(guest?.fullName || '');
+      setStatus('');
+      setWishes('');
       setIsSubmittedSuccess(true);
-      loadWishes();
       onRSVPSubmitted();
-      onNotify('Matur nuwun! Konfirmasi kehadiran & doa restu panjenengan sampun katampi.');
+      onNotify('Terima kasih! Konfirmasi kehadiran dan doa Anda telah kami terima.');
       setTimeout(() => setIsSubmittedSuccess(false), 5000);
-    } catch (err) {
-      setIsSubmitting(false);
+    } catch {
       onNotify('Gagal menyimpan konfirmasi. Silakan coba kembali.');
+    } finally {
+      submissionInProgress.current = false;
+      setIsSubmitting(false);
     }
   };
 
-  const handleLikeWish = (id: string) => {
-    weddingStorage.likeWish(id);
-    loadWishes();
-    onNotify('Pandonga panjenengan sampun ka-Aamiin-kan.');
+  const handleLikeWish = async (id: string) => {
+    if (likingWishIds.has(id)) return;
+    setLikingWishIds((current) => new Set(current).add(id));
+    try {
+      const liked = await weddingStorage.likeWish(id);
+      if (!liked) return;
+      setLikedWishIds((current) => new Set(current).add(id));
+      onNotify(
+        liked.alreadyLiked
+          ? 'Alamat IP ini sudah memberikan Aamiin pada doa tersebut.'
+          : 'Doa telah diaminkan.',
+      );
+    } catch (error) {
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? String(error.code)
+          : '';
+      const message = error instanceof Error ? error.message : '';
+      console.error('Gagal mengirim Aamiin melalui Firebase Functions:', error);
+
+      if (code === 'auth/operation-not-allowed') {
+        onNotify('Login anonim belum diaktifkan. Aktifkan Anonymous pada Firebase Authentication.');
+      } else if (code === 'permission-denied' || code === 'firestore/permission-denied') {
+        onNotify('Firestore menolak Aamiin. Periksa Rules publikWishes dan subkoleksi likes.');
+      } else {
+        onNotify(`Gagal mengirim Aamiin${message ? `: ${message}` : '. Periksa koneksi Firebase.'}`);
+      }
+    } finally {
+      setLikingWishIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
   };
 
   return (
     <section id="rsvp" className="py-12 px-6 bg-batik-dark text-[#F8F3E8]">
       <div className="max-w-md mx-auto text-center mb-8">
         <p className="text-xs uppercase tracking-[0.3em] text-[#C5A15B] font-semibold">
-          Pawartos Rawuh
+          Doa & Ucapan Restu
         </p>
         <h2 className="font-royal text-2xl font-bold tracking-wider gold-shimmer mt-1">
           Konfirmasi Kehadiran (RSVP)
         </h2>
         <RoyalDivider className="my-4" />
         <p className="text-xs text-[#E0C782]/80 font-serif-jawa italic max-w-xs mx-auto leading-relaxed">
-          Kula sakulawarga nyuwun konfirmasi rawuh panjenengan kagem nyiapaken papan palungguhan saha jamuan:
+          Di hari bahagia ini, doa restu dan harapan baik dari Anda merupakan hadiah yang begitu berarti bagi kami.
         </p>
       </div>
-
-      {/* Royal Guest Pass with QR if personalized invitation */}
-      {guest && settings.features.enableCheckInPass !== false && (
-        <div className="max-w-sm mx-auto mb-6">
-          <RoyalGuestPass guest={guest} settings={settings} />
-        </div>
-      )}
 
       {/* Form Card */}
       <div className="max-w-sm mx-auto p-6 rounded-3xl bg-[#0e2720]/90 border border-[#C5A15B]/50 shadow-2xl backdrop-blur-sm relative">
@@ -120,7 +151,7 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ guest, settings, onRSV
               <span className="text-[#F8F3E8]/90 font-medium">{guest.fullName}</span>
               {guest.rsvpStatus !== 'Belum Mengonfirmasi' && (
                 <span className="text-[10px] text-[#C5A15B] block mt-0.5">
-                  Status saat ini: {guest.rsvpStatus} ({guest.attendeeCount} pax)
+                  Status saat ini: {guest.rsvpStatus}
                 </span>
               )}
             </div>
@@ -137,7 +168,7 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ guest, settings, onRSV
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Asma panjenengan..."
+              placeholder="Masukkan nama Anda..."
               required
               readOnly={Boolean(guest)}
               className={`w-full px-3.5 py-2.5 rounded-xl text-xs bg-[#173D32] border border-[#C5A15B]/40 text-[#F8F3E8] placeholder-[#F8F3E8]/40 focus:outline-none focus:border-[#C5A15B] transition-all ${
@@ -151,8 +182,8 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ guest, settings, onRSV
             <label className="block text-xs uppercase tracking-wider text-[#E0C782] font-medium mb-1.5">
               Konfirmasi Kehadiran
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['Hadir', 'Tidak Hadir', 'Masih Ragu'] as RSVPStatus[]).map((st) => (
+            <div className="grid grid-cols-2 gap-2">
+              {(['Hadir', 'Tidak Hadir'] as const).map((st) => (
                 <button
                   key={st}
                   type="button"
@@ -169,28 +200,8 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ guest, settings, onRSV
             </div>
           </div>
 
-          {/* Attendee Count if attending */}
-          {status === 'Hadir' && (
-            <div>
-              <label className="block text-xs uppercase tracking-wider text-[#E0C782] font-medium mb-1.5">
-                Jumlah Tamu Hadir
-              </label>
-              <select
-                value={attendeeCount}
-                onChange={(e) => setAttendeeCount(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-[#173D32] border border-[#C5A15B]/40 text-[#F8F3E8] focus:outline-none focus:border-[#C5A15B]"
-              >
-                <option value={1}>1 Orang</option>
-                <option value={2}>2 Orang</option>
-                <option value={3}>3 Orang</option>
-                <option value={4}>4 Orang</option>
-                <option value={5}>5 Orang</option>
-              </select>
-            </div>
-          )}
-
           {/* Wishes TextArea */}
-          <div>
+          {settings.features.enableGuestWishes && <div>
             <label className="block text-xs uppercase tracking-wider text-[#E0C782] font-medium mb-1.5">
               Doa & Ucapan Restu
             </label>
@@ -198,10 +209,10 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ guest, settings, onRSV
               rows={3}
               value={wishes}
               onChange={(e) => setWishes(e.target.value)}
-              placeholder="Tuliskan ucapan selamat dan doa restu panjenengan kagem mempelai..."
+              placeholder="Tuliskan ucapan selamat dan doa untuk kedua mempelai..."
               className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-[#173D32] border border-[#C5A15B]/40 text-[#F8F3E8] placeholder-[#F8F3E8]/40 focus:outline-none focus:border-[#C5A15B] transition-all resize-none font-serif-jawa"
             />
-          </div>
+          </div>}
 
           <button
             type="submit"
@@ -213,19 +224,20 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ guest, settings, onRSV
             ) : (
               <Send className="w-3.5 h-3.5" />
             )}
-            <span>{isSubmitting ? 'Menyimpan...' : 'KIRIM KONFIRMASI'}</span>
+            <span>{isSubmitting ? 'Mengirim...' : 'Kirim'}</span>
           </button>
         </form>
 
         {isSubmittedSuccess && (
           <div className="mt-4 p-3 rounded-xl bg-[#173D32] border border-[#C5A15B] text-center text-xs text-[#E0C782] flex items-center justify-center gap-2 animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 text-[#C5A15B]" />
-            <span>Konfirmasi berhasil disimpan! Matur nuwun sanget.</span>
+            <span>Konfirmasi berhasil disimpan! Terima kasih.</span>
           </div>
         )}
       </div>
 
       {/* Guest Wishes Board (Buku Tamu Doa Restu) */}
+      {settings.features.enableGuestWishes && (
       <div className="max-w-sm mx-auto mt-10">
         <div className="flex items-center justify-between mb-4 px-1">
           <div className="flex items-center gap-2">
@@ -235,14 +247,14 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ guest, settings, onRSV
             </h3>
           </div>
           <span className="text-[11px] text-[#C5A15B] font-semibold bg-[#173D32] px-2.5 py-0.5 rounded-full border border-[#C5A15B]/40">
-            {wishesList.length} Doa
+            {wishesList.length} Ucapan
           </span>
         </div>
 
         <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
           {wishesList.length === 0 ? (
             <p className="text-xs text-center text-[#E0C782]/60 font-serif-jawa italic py-4">
-              Dereng wonten ucapan. Dados ingkang kapisan ngaturaken doa restu.
+              Belum ada ucapan. Jadilah yang pertama menyampaikan doa dan ucapan.
             </p>
           ) : (
             wishesList.map((item) => (
@@ -258,8 +270,6 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ guest, settings, onRSV
                     className={`text-[9px] px-2 py-0.5 rounded-full font-semibold ${
                       item.attendanceStatus === 'Hadir'
                         ? 'bg-[#173D32] text-[#E0C782] border border-[#C5A15B]/40'
-                        : item.attendanceStatus === 'Masih Ragu'
-                        ? 'bg-[#3d3217] text-[#fae6b1] border border-[#fae6b1]/30'
                         : 'bg-[#2b1717] text-[#fca5a5] border border-[#fca5a5]/30'
                     }`}
                   >
@@ -280,9 +290,10 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ guest, settings, onRSV
                   <button
                     type="button"
                     onClick={() => handleLikeWish(item.id)}
-                    className="flex items-center gap-1 text-[10px] text-[#E0C782] hover:text-white px-2 py-0.5 rounded-full bg-[#173D32] border border-[#C5A15B]/30 active:scale-90 transition-all"
+                    disabled={likingWishIds.has(item.id) || likedWishIds.has(item.id)}
+                    className="flex items-center gap-1 text-[10px] text-[#E0C782] hover:text-white px-2 py-0.5 rounded-full bg-[#173D32] border border-[#C5A15B]/30 active:scale-90 transition-all disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <Heart className="w-2.5 h-2.5 fill-current text-[#C5A15B]" />
+                    <span aria-hidden="true" className="text-xs leading-none">🤲🏻</span>
                     <span>Aamiin ({item.likesCount || 0})</span>
                   </button>
                 </div>
@@ -291,6 +302,7 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ guest, settings, onRSV
           )}
         </div>
       </div>
+      )}
     </section>
   );
 };

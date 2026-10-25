@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Save, RefreshCw, Eye, Music, Heart, Calendar, Upload, Play, Check } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Save, RefreshCw, Eye, Heart, Calendar, Upload, Play } from 'lucide-react';
 import { weddingStorage } from '../../services/storage';
 import { WeddingSettings } from '../../types/wedding';
 
@@ -14,6 +14,16 @@ export const AdminContentPage: React.FC<AdminContentPageProps> = ({
 }) => {
   const [settings, setSettings] = useState<WeddingSettings>(weddingStorage.getSettings());
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const refreshSettings = (event: Event) => {
+      if ((event as CustomEvent<{ key: string }>).detail.key === 'javanese_wedding_settings_v1') {
+        setSettings(weddingStorage.getSettings());
+      }
+    };
+    window.addEventListener('wedding-storage-updated', refreshSettings);
+    return () => window.removeEventListener('wedding-storage-updated', refreshSettings);
+  }, []);
 
   const handleChange = (field: keyof WeddingSettings, val: any) => {
     setSettings((prev) => ({ ...prev, [field]: val }));
@@ -42,23 +52,23 @@ export const AdminContentPage: React.FC<AdminContentPageProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const applyAudioPreset = (title: string, url: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      backgroundMusicTitle: title,
-      backgroundMusicUrl: url,
-    }));
-    onNotify(`Lagu diubah ke "${title}".`);
-  };
-
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    weddingStorage.updateSettings(settings);
-    setTimeout(() => {
+    try {
+      const savedSettings = await weddingStorage.updateSettings(settings);
+      setSettings(savedSettings);
+      onNotify('Konten undangan pernikahan berhasil disimpan ke Firebase!');
+    } catch (error) {
+      console.error('Gagal menyimpan konten undangan:', error);
+      onNotify(
+        error instanceof Error && error.message.includes('berbeda dari perubahan terakhir')
+          ? 'Isi pengaturan Firebase berubah saat proses simpan. Coba muat ulang halaman lalu simpan kembali.'
+          : 'Gagal memverifikasi penyimpanan konten ke Firebase. Periksa koneksi dan Security Rules.',
+      );
+    } finally {
       setIsSaving(false);
-      onNotify('Konten undangan pernikahan berhasil disimpan!');
-    }, 300);
+    }
   };
 
   const handleReset = () => {
@@ -69,7 +79,7 @@ export const AdminContentPage: React.FC<AdminContentPageProps> = ({
   };
 
   return (
-    <form onSubmit={handleSave} className="space-y-6 max-w-4xl">
+    <form onSubmit={handleSave} className="space-y-6 w-full">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-royal text-2xl font-bold text-[#173D32]">
@@ -158,9 +168,10 @@ export const AdminContentPage: React.FC<AdminContentPageProps> = ({
           </div>
 
           <div>
-            <label className="block text-gray-700 font-semibold mb-1">URL Foto Mempelai Wanita</label>
+            <label className="block text-gray-700 font-semibold mb-1">Path / URL Foto Mempelai Wanita</label>
             <input
-              type="url"
+              type="text"
+              placeholder="/images/foto-mempelai-wanita.jpg atau https://..."
               value={settings.brideImageUrl}
               onChange={(e) => handleChange('brideImageUrl', e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none font-mono text-[11px]"
@@ -228,9 +239,10 @@ export const AdminContentPage: React.FC<AdminContentPageProps> = ({
           </div>
 
           <div>
-            <label className="block text-gray-700 font-semibold mb-1">URL Foto Mempelai Pria</label>
+            <label className="block text-gray-700 font-semibold mb-1">Path / URL Foto Mempelai Pria</label>
             <input
-              type="url"
+              type="text"
+              placeholder="/images/foto-mempelai-pria.jpg atau https://..."
               value={settings.groomImageUrl}
               onChange={(e) => handleChange('groomImageUrl', e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none font-mono text-[11px]"
@@ -295,9 +307,10 @@ export const AdminContentPage: React.FC<AdminContentPageProps> = ({
           </div>
 
           <div>
-            <label className="block text-gray-700 font-semibold mb-1">URL Foto Hero Sampul</label>
+            <label className="block text-gray-700 font-semibold mb-1">Path / URL Foto Hero Sampul</label>
             <input
-              type="url"
+              type="text"
+              placeholder="/images/foto-sampul.jpg atau https://..."
               value={settings.heroImageUrl}
               onChange={(e) => handleChange('heroImageUrl', e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-gray-300 font-mono text-[11px] focus:outline-none"
@@ -305,57 +318,15 @@ export const AdminContentPage: React.FC<AdminContentPageProps> = ({
           </div>
         </div>
 
-        {/* Background Music Selector & Uploader */}
+        {/* Background Music Uploader */}
         <div className="pt-3 border-t border-gray-100 space-y-3">
           <div className="flex items-center justify-between">
             <label className="block text-gray-700 font-semibold">
-              Musik Latar Undangan (Lagu Indonesia / Gamelan)
+              Musik Latar Undangan
             </label>
             <span className="text-[11px] font-semibold text-[#997838] bg-[#FAF6EE] px-2.5 py-0.5 rounded-full border border-[#C5A15B]/30">
-              {settings.backgroundMusicTitle || 'Ketika Cinta Bertasbih'}
+              {settings.backgroundMusicTitle || 'Belum ada musik'}
             </span>
-          </div>
-
-          {/* Quick Presets */}
-          <div className="space-y-1.5">
-            <span className="text-[11px] text-gray-500 font-medium">Pilihan Rekomendasi Lagu:</span>
-            <div className="flex flex-wrap gap-2">
-              {[
-                {
-                  title: 'Ketika Cinta Bertasbih - Melly Goeslaw & Amee',
-                  url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3',
-                  badge: 'Pilihan Anda (Ketika Cinta Bertasbih)',
-                },
-                {
-                  title: 'Janji Suci - Yovie & Nuno (Romantic Strings)',
-                  url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8b9354002.mp3',
-                  badge: 'Janji Suci',
-                },
-                {
-                  title: 'Gending Gamelan Jawa (Ladrang Wilujeng)',
-                  url: 'https://cdn.pixabay.com/download/audio/2022/08/02/audio_884fe92c21.mp3',
-                  badge: 'Gamelan Keraton',
-                },
-              ].map((preset) => {
-                const isActive = settings.backgroundMusicTitle === preset.title;
-
-                return (
-                  <button
-                    key={preset.title}
-                    type="button"
-                    onClick={() => applyAudioPreset(preset.title, preset.url)}
-                    className={`py-1.5 px-3 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border ${
-                      isActive
-                        ? 'bg-[#173D32] text-[#E0C782] border-[#C5A15B] shadow-sm'
-                        : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300'
-                    }`}
-                  >
-                    {isActive ? <Check className="w-3.5 h-3.5 text-[#E0C782]" /> : <Music className="w-3.5 h-3.5 text-[#997838]" />}
-                    <span>{preset.badge}</span>
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
           {/* Custom audio file uploader */}
@@ -365,7 +336,7 @@ export const AdminContentPage: React.FC<AdminContentPageProps> = ({
                 Punya Berkas MP3 Lagu Sendiri?
               </span>
               <span className="text-[11px] text-gray-500">
-                Unggah file MP3 langsung dari HP atau Laptop Anda
+                Unggah MP3 milik Anda atau yang memiliki izin untuk digunakan.
               </span>
             </div>
             <label className="cursor-pointer py-1.5 px-3 rounded-xl bg-[#173D32] text-[#E0C782] hover:bg-[#235244] text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all shrink-0">
@@ -373,39 +344,24 @@ export const AdminContentPage: React.FC<AdminContentPageProps> = ({
               <span>Pilih Berkas MP3</span>
               <input
                 type="file"
-                accept="audio/*"
+                accept=".mp3,.m4a,audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a"
                 onChange={handleAudioFileUpload}
                 className="hidden"
               />
             </label>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-gray-700 font-semibold mb-1">
-                Judul Lagu yang Ditampilkan
-              </label>
-              <input
-                type="text"
-                placeholder="Ketika Cinta Bertasbih - Melly Goeslaw & Amee"
-                value={settings.backgroundMusicTitle || ''}
-                onChange={(e) => handleChange('backgroundMusicTitle', e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-semibold mb-1">
-                URL Audio Streaming (Direct MP3 Link)
-              </label>
-              <input
-                type="url"
-                value={settings.backgroundMusicUrl.startsWith('data:') ? '(Berkas MP3 telah diunggah)' : settings.backgroundMusicUrl}
-                onChange={(e) => handleChange('backgroundMusicUrl', e.target.value)}
-                disabled={settings.backgroundMusicUrl.startsWith('data:')}
-                className="w-full px-3 py-2 rounded-xl border border-gray-300 font-mono text-[11px] focus:outline-none disabled:bg-gray-100"
-              />
-            </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-1">
+              Judul Lagu yang Ditampilkan
+            </label>
+            <input
+              type="text"
+              placeholder="Musik Pengiring Pernikahan"
+              value={settings.backgroundMusicTitle || ''}
+              onChange={(e) => handleChange('backgroundMusicTitle', e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none"
+            />
           </div>
 
           {/* Audio Preview Player */}
@@ -458,7 +414,7 @@ export const AdminContentPage: React.FC<AdminContentPageProps> = ({
         </div>
 
         <div>
-          <label className="block text-gray-700 font-semibold mb-1">Kalimat Penutup & Matur Nuwun</label>
+          <label className="block text-gray-700 font-semibold mb-1">Kalimat Penutup & Ucapan Terima Kasih</label>
           <textarea
             rows={2}
             value={settings.closingMessage}

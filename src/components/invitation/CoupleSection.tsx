@@ -28,7 +28,7 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({ settings }) => {
 
         <div className="mt-4 pt-3 border-t border-[#C5A15B]/20">
           <p className="text-xs text-[#173D32]/80 font-serif-jawa italic">
-            "Mugi Gusti Allah tansah paring berkah karaharjan, nyawijekaken ing roso tresna sejati dumugi kaken-kaken ninen-ninen."
+            "Semoga Allah senantiasa melimpahkan keberkahan, menyatukan dalam cinta sejati hingga akhir hayat."
           </p>
         </div>
       </div>
@@ -66,7 +66,7 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({ settings }) => {
             {settings.brideTitle}
           </p>
           <p className="text-xs text-[#4b5563] mt-2 font-serif-jawa leading-snug">
-            Putri kinasih saking:<br />
+            Putri tercinta dari:<br />
             <span className="font-semibold text-[#173D32]">{settings.brideParents}</span>
           </p>
         </div>
@@ -98,7 +98,7 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({ settings }) => {
             {settings.groomTitle}
           </p>
           <p className="text-xs text-[#4b5563] mt-2 font-serif-jawa leading-snug">
-            Putra kakung saking:<br />
+            Putra tercinta dari:<br />
             <span className="font-semibold text-[#173D32]">{settings.groomParents}</span>
           </p>
         </div>

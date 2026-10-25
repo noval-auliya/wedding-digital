@@ -1,12 +1,11 @@
 export type GuestCategory = 'Keluarga' | 'VIP' | 'Teman' | 'Rekan Kerja' | 'Lainnya';
 
-export type RSVPStatus = 'Hadir' | 'Tidak Hadir' | 'Masih Ragu' | 'Belum Mengonfirmasi';
+export type RSVPStatus = 'Hadir' | 'Tidak Hadir' | 'Belum Mengonfirmasi';
 
 export type DeliveryStatus = 'Belum Dikirim' | 'Terkirim' | 'Dibuka';
 
 export interface WeddingSettings {
   id: string;
-  weddingTitle: string;
   brideName: string;
   brideNickname: string;
   brideTitle: string;
@@ -18,6 +17,7 @@ export interface WeddingSettings {
   weddingDate: string; // ISO date string: YYYY-MM-DD
   weddingTime: string; // e.g. "09:00 WIB"
   timezone: string; // e.g. "Asia/Jakarta"
+  faviconUrl: string;
   coverTitle: string;
   openingMessage: string;
   closingMessage: string;
@@ -37,7 +37,6 @@ export interface WeddingSettings {
     enableLoveStory: boolean;
     enableGallery: boolean;
     enableMusicAutoplay: boolean;
-    enableCheckInPass?: boolean;
   };
   updatedAt: string;
 }
@@ -52,9 +51,7 @@ export interface Guest {
   invitationStatus: DeliveryStatus;
   adminNotes?: string;
   tableAssignment?: string;
-  checkedInAt?: string;
   rsvpStatus: RSVPStatus;
-  attendeeCount: number;
   wishes?: string;
   createdAt: string;
   updatedAt: string;
@@ -77,6 +74,9 @@ export interface WeddingEvent {
 export interface GalleryImage {
   id: string;
   imageUrl: string;
+  imageFit?: 'contain' | 'cover';
+  imagePositionX?: number;
+  imagePositionY?: number;
   caption: string;
   displayOrder: number;
   isFeatured: boolean;
@@ -101,6 +101,7 @@ export interface WeddingGift {
   accountNumber: string;
   description?: string;
   deliveryAddress?: string;
+  displayOrder: number;
   isPublished: boolean;
 }
 
@@ -110,7 +111,6 @@ export interface RSVP {
   guestSlug?: string;
   guestName: string;
   attendanceStatus: RSVPStatus;
-  attendeeCount: number;
   wishes: string;
   likesCount?: number;
   submittedAt: string;

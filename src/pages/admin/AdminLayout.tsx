@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   FileEdit,
@@ -15,7 +15,7 @@ import {
   X,
   ChevronRight,
   Database,
-  QrCode,
+  LoaderCircle,
 } from 'lucide-react';
 import { GununganIcon } from '../../components/common/GununganIcon';
 import { authService } from '../../services/auth';
@@ -25,7 +25,6 @@ export type AdminTab =
   | 'dashboard'
   | 'content'
   | 'guests'
-  | 'checkin'
   | 'rsvp'
   | 'events'
   | 'gallery'
@@ -49,7 +48,18 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   children,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [dataReady, setDataReady] = useState(weddingStorage.isDataReady());
+  const [dataError, setDataError] = useState(weddingStorage.getDataError());
   const user = authService.getUser();
+
+  useEffect(() => {
+    const refreshDataStatus = () => {
+      setDataReady(weddingStorage.isDataReady());
+      setDataError(weddingStorage.getDataError());
+    };
+    window.addEventListener('wedding-storage-updated', refreshDataStatus);
+    return () => window.removeEventListener('wedding-storage-updated', refreshDataStatus);
+  }, []);
 
   const navItems: Array<{
     id: AdminTab;
@@ -59,7 +69,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'content', label: 'Konten Undangan', icon: FileEdit },
     { id: 'guests', label: 'Data Tamu', icon: Users },
-    { id: 'checkin', label: 'Presensi Tamu (QR)', icon: QrCode },
     { id: 'rsvp', label: 'RSVP & Ucapan', icon: MessageSquare },
     { id: 'events', label: 'Jadwal Acara', icon: CalendarDays },
     { id: 'gallery', label: 'Galeri Foto', icon: ImageIcon },
@@ -93,6 +102,15 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         </button>
       </header>
 
+      {isMobileMenuOpen && (
+        <button
+          type="button"
+          aria-label="Tutup menu"
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+        />
+      )}
+
       {/* Sidebar for Desktop & Drawer for Mobile */}
       <aside
         className={`fixed md:sticky top-0 left-0 h-screen w-72 bg-[#173D32] text-[#F8F3E8] border-r border-[#C5A15B]/30 flex flex-col justify-between z-50 transition-transform duration-300 ${
@@ -105,11 +123,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             <GununganIcon size={38} />
             <div>
               <h2 className="font-royal text-base font-bold gold-shimmer tracking-wide leading-tight">
-                Pranatan Pawiwahan
+                Pengelolaan Undangan
               </h2>
-              <span className="text-[11px] text-[#E0C782]/80 font-serif-jawa italic">
-                Sekar & Dimas
-              </span>
             </div>
           </div>
 
@@ -120,7 +135,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               <span className="text-[#F8F3E8]/80 font-medium">Database:</span>
             </div>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#C5A15B]/20 text-[#E0C782]">
-              {weddingStorage.isSupabaseConfigured() ? 'Supabase' : 'Local Storage'}
+              {weddingStorage.isFirebaseConfigured() ? 'Firebase' : 'Belum dikonfigurasi'}
             </span>
           </div>
 
@@ -169,15 +184,48 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             </button>
 
             <div className="pt-2 text-[10px] text-[#F8F3E8]/50 text-center font-serif-jawa">
-              {user?.email || 'admin@royalwedding.id'}
+              {user?.email || 'Admin Firebase'}
             </div>
           </div>
         </div>
       </aside>
 
       {/* Main Content Workspace */}
-      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full overflow-y-auto">
-        {children}
+      <main className="flex-1 min-w-0 p-4 md:p-8 w-full overflow-y-auto">
+        {!dataReady ? (
+          <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+            <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[#C5A15B]/30 bg-white px-8 py-10 text-center shadow-[0_20px_60px_-25px_rgba(23,61,50,0.3)]">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#173D32] via-[#C5A15B] to-[#173D32]" />
+              <div className="relative mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-[#C5A15B]/40 bg-[#FAF6EE]">
+                <div className="absolute inset-1 rounded-full border border-dashed border-[#C5A15B]/50 animate-[spin_12s_linear_infinite]" />
+                <GununganIcon size={40} className="text-[#997838]" />
+                {!dataError && (
+                  <LoaderCircle className="absolute -right-1 -top-1 h-6 w-6 animate-spin rounded-full bg-white text-[#173D32]" />
+                )}
+              </div>
+              <p className="font-royal text-lg font-bold text-[#173D32]">
+                {dataError ? 'Data belum dapat dimuat' : 'Menyiapkan undangan'}
+              </p>
+              <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-[#64736D]">
+                {dataError || 'Memuat data dari Firebase...'}
+              </p>
+              {!dataError && (
+                <div className="mx-auto mt-6 h-1.5 w-40 overflow-hidden rounded-full bg-[#F1E8D6]">
+                  <div className="h-full w-1/2 animate-pulse rounded-full bg-gradient-to-r from-[#997838] to-[#D8BA73]" />
+                </div>
+              )}
+              {dataError && (
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="mt-6 rounded-xl bg-[#173D32] px-5 py-2.5 text-sm font-semibold text-[#E0C782] shadow-sm transition-colors hover:bg-[#235244]"
+                >
+                  Coba lagi
+                </button>
+              )}
+            </div>
+          </div>
+        ) : children}
       </main>
     </div>
   );

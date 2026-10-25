@@ -25,7 +25,7 @@ export const EventsSection: React.FC<EventsSectionProps> = ({ events }) => {
     const endDateTime = `${dateClean}T${endClean}`;
 
     const title = encodeURIComponent(event.title);
-    const details = encodeURIComponent(event.description || 'Pahargyan Pawiwahan Ageng Jawi');
+    const details = encodeURIComponent(event.description || 'Perayaan pernikahan adat Jawa');
     const location = encodeURIComponent(`${event.venue}, ${event.address}`);
 
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDateTime}/${endDateTime}&details=${details}&location=${location}&ctz=Asia/Jakarta`;
@@ -35,14 +35,14 @@ export const EventsSection: React.FC<EventsSectionProps> = ({ events }) => {
     <section id="events" className="relative py-12 px-6 bg-batik-dark text-[#F8F3E8]">
       <div className="max-w-md mx-auto text-center mb-8">
         <p className="text-xs uppercase tracking-[0.3em] text-[#C5A15B] font-semibold">
-          Reroncening Adat & Pahargyan
+          Rangkaian Acara Pernikahan
         </p>
         <h2 className="font-royal text-2xl font-bold tracking-wider gold-shimmer mt-1">
           Jadwal Acara Pernikahan
         </h2>
         <RoyalDivider className="my-4" />
         <p className="text-xs text-[#E0C782]/80 font-serif-jawa italic max-w-xs mx-auto">
-          Kanthi hangajab berkahing Gusti, keparenga rawuh hangestreni adicara:
+          Atas limpahan rahmat dan karunia Tuhan Yang Maha Esa, kami bersyukur dapat melangkah menuju kehidupan baru dan memohon doa restu agar senantiasa diberkahi dalam perjalanan kami.
         </p>
       </div>
 

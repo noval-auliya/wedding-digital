@@ -10,7 +10,9 @@ interface GiftsSectionProps {
 
 export const GiftsSection: React.FC<GiftsSectionProps> = ({ gifts, onNotify }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const publishedGifts = gifts.filter((g) => g.isPublished);
+  const publishedGifts = gifts
+    .filter((g) => g.isPublished)
+    .sort((a, b) => a.displayOrder - b.displayOrder);
 
   if (publishedGifts.length === 0) return null;
 
@@ -38,7 +40,7 @@ export const GiftsSection: React.FC<GiftsSectionProps> = ({ gifts, onNotify }) =
         </h2>
         <RoyalDivider className="my-4" />
         <p className="text-xs text-[#2c3e35]/80 font-serif-jawa italic max-w-xs mx-auto leading-relaxed">
-          Doa restu panjenengan sami punika sampun dados kanugrahan ingkang tanpa upami kagem kula sakulawarga. Ananging menawi kepareng paring tanda tresna, saged lumantar:
+          Doa restu yang tulus dari Anda merupakan anugerah yang senantiasa kami syukuri. Semoga kebahagiaan di hari istimewa ini dapat menjadi awal dari doa-doa baik yang menyertai perjalanan kami.
         </p>
       </div>
 

@@ -3,17 +3,17 @@ import {
   MessageSquare,
   Search,
   Filter,
-  Download,
   CheckCircle2,
   XCircle,
-  HelpCircle,
   Clock,
   Edit3,
   ExternalLink,
-  Users,
+  Trash2,
 } from 'lucide-react';
 import { weddingStorage } from '../../services/storage';
 import { RSVP, RSVPStatus } from '../../types/wedding';
+import { ExportActions } from '../../components/admin/ExportActions';
+import { ExportFormat, exportRecords } from '../../utils/export';
 
 interface AdminRSVPPageProps {
   onNotify: (msg: string) => void;
@@ -28,8 +28,10 @@ export const AdminRSVPPage: React.FC<AdminRSVPPageProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [editingRsvp, setEditingRsvp] = useState<RSVP | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editWishes, setEditWishes] = useState('');
   const [editStatus, setEditStatus] = useState<RSVPStatus>('Hadir');
-  const [editCount, setEditCount] = useState<number>(2);
+  const [isSaving, setIsSaving] = useState(false);
 
   const loadData = () => {
     setRsvps(weddingStorage.getRSVPs());
@@ -37,50 +39,88 @@ export const AdminRSVPPage: React.FC<AdminRSVPPageProps> = ({
 
   useEffect(() => {
     loadData();
+    const handleStorageUpdate = (event: Event) => {
+      const key = (event as CustomEvent<{ key: string }>).detail.key;
+      if (key === 'javanese_wedding_rsvps_v1' || key === 'javanese_wedding_guests_v1') loadData();
+    };
+    window.addEventListener('wedding-storage-updated', handleStorageUpdate);
+    return () => window.removeEventListener('wedding-storage-updated', handleStorageUpdate);
   }, []);
 
-  const stats = weddingStorage.getStats();
+  const guests = weddingStorage.getGuests();
+  const submittedGuestIds = new Set(rsvps.flatMap((rsvp) => rsvp.guestId ? [rsvp.guestId] : []));
+  const submittedGuestSlugs = new Set(
+    rsvps.flatMap((rsvp) => rsvp.guestSlug ? [rsvp.guestSlug.toLowerCase()] : []),
+  );
+  const submittedGuestNames = new Set(rsvps.map((rsvp) => rsvp.guestName.trim().toLowerCase()));
+  const stats = {
+    attendingCount: rsvps.filter((rsvp) => rsvp.attendanceStatus === 'Hadir').length,
+    notAttendingCount: rsvps.filter((rsvp) => rsvp.attendanceStatus === 'Tidak Hadir').length,
+    unconfirmedCount: guests.filter(
+      (guest) =>
+        !submittedGuestIds.has(guest.id) &&
+        !submittedGuestSlugs.has(guest.slug.toLowerCase()) &&
+        !submittedGuestNames.has(guest.fullName.trim().toLowerCase()),
+    ).length,
+  };
 
-  const handleExportCSV = () => {
-    const headers = ['Nama Tamu', 'Status Kehadiran', 'Jumlah Pax', 'Doa dan Ucapan', 'Slug Undangan', 'Waktu Submit'];
+  const handleExport = async (format: ExportFormat) => {
+    const headers = ['Nama Tamu', 'Status Kehadiran', 'Doa dan Ucapan', 'Slug Undangan', 'Waktu Submit'];
     const rows = rsvps.map((r) => [
-      `"${r.guestName.replace(/"/g, '""')}"`,
-      `"${r.attendanceStatus}"`,
-      r.attendeeCount,
-      `"${(r.wishes || '').replace(/"/g, '""')}"`,
-      `"${r.guestSlug || ''}"`,
-      `"${new Date(r.submittedAt).toLocaleString('id-ID')}"`,
+      r.guestName,
+      r.attendanceStatus,
+      r.wishes || '',
+      r.guestSlug || '',
+      new Date(r.submittedAt).toLocaleString('id-ID'),
     ]);
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `rekap_rsvp_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    onNotify('Data RSVP berhasil diekspor.');
+    const filename = `rekap_rsvp_${new Date().toISOString().split('T')[0]}`;
+    try {
+      await exportRecords(format, filename, 'Rekap RSVP & Ucapan', headers, rows);
+      onNotify(`Data RSVP berhasil diunduh ke ${format.toUpperCase()}.`);
+    } catch {
+      onNotify(`Gagal mengekspor data RSVP ke ${format.toUpperCase()}.`);
+    }
   };
 
   const openEditModal = (rsvp: RSVP) => {
     setEditingRsvp(rsvp);
+    setEditName(rsvp.guestName);
+    setEditWishes(rsvp.wishes);
     setEditStatus(rsvp.attendanceStatus);
-    setEditCount(rsvp.attendeeCount || 1);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingRsvp) return;
-    weddingStorage.submitRSVP({
-      guestSlug: editingRsvp.guestSlug,
-      guestName: editingRsvp.guestName,
-      attendanceStatus: editStatus,
-      attendeeCount: editStatus === 'Hadir' ? editCount : 0,
-      wishes: editingRsvp.wishes,
-    });
-    setEditingRsvp(null);
-    loadData();
-    onNotify(`Status RSVP ${editingRsvp.guestName} berhasil diperbarui.`);
+    if (!editName.trim()) {
+      onNotify('Nama tamu wajib diisi.');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await weddingStorage.updateRSVP(editingRsvp.id, {
+        guestName: editName.trim(),
+        attendanceStatus: editStatus,
+        wishes: editWishes.trim(),
+      });
+      setEditingRsvp(null);
+      loadData();
+      onNotify(`RSVP ${editName.trim()} berhasil diperbarui.`);
+    } catch {
+      onNotify('Gagal memperbarui RSVP. Periksa koneksi Firebase lalu coba lagi.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (rsvp: RSVP) => {
+    if (!window.confirm(`Hapus data RSVP dari ${rsvp.guestName}?`)) return;
+    try {
+      await weddingStorage.deleteRSVP(rsvp.id);
+      loadData();
+      onNotify(`Data RSVP ${rsvp.guestName} berhasil dihapus.`);
+    } catch {
+      onNotify('Gagal menghapus RSVP. Periksa koneksi Firebase lalu coba lagi.');
+    }
   };
 
   const filtered = rsvps.filter((r) => {
@@ -100,17 +140,11 @@ export const AdminRSVPPage: React.FC<AdminRSVPPageProps> = ({
             RSVP & Buku Tamu Ucapan
           </h1>
           <p className="text-xs text-[#2c3e35]/80 font-serif-jawa italic mt-0.5">
-            Daftar respon kehadiran, jumlah undangan, serta doa restu saking para tamu
+            Kelola konfirmasi kehadiran, nama tamu, dan doa restu dari para tamu
           </p>
         </div>
 
-        <button
-          onClick={handleExportCSV}
-          className="py-2 px-3.5 rounded-xl bg-white border border-[#C5A15B] text-[#173D32] text-xs font-semibold flex items-center gap-1.5 hover:bg-[#FAF6EE] shadow-sm transition-all self-start sm:self-auto"
-        >
-          <Download className="w-3.5 h-3.5 text-[#C5A15B]" />
-          <span>Ekspor Hasil RSVP (CSV)</span>
-        </button>
+        <ExportActions onExport={handleExport} label="Ekspor RSVP" />
       </div>
 
       {/* Stats Summary Pills */}
@@ -121,7 +155,7 @@ export const AdminRSVPPage: React.FC<AdminRSVPPageProps> = ({
           </div>
           <div>
             <span className="font-royal text-lg font-bold text-emerald-800">{stats.attendingCount} Tamu</span>
-            <span className="text-[10px] text-gray-500 block">Total ~{stats.totalAttendingPax} Kursi Pax</span>
+            <span className="text-[10px] text-gray-500 block">Pasti Hadir</span>
           </div>
         </div>
 
@@ -132,16 +166,6 @@ export const AdminRSVPPage: React.FC<AdminRSVPPageProps> = ({
           <div>
             <span className="font-royal text-lg font-bold text-red-700">{stats.notAttendingCount} Tamu</span>
             <span className="text-[10px] text-gray-500 block">Tidak Dapat Hadir</span>
-          </div>
-        </div>
-
-        <div className="p-3.5 rounded-2xl bg-white border border-[#C5A15B]/30 shadow-sm flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-            <HelpCircle className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="font-royal text-lg font-bold text-amber-700">{stats.undecidedCount} Tamu</span>
-            <span className="text-[10px] text-gray-500 block">Masih Ragu / Menimbang</span>
           </div>
         </div>
 
@@ -178,19 +202,21 @@ export const AdminRSVPPage: React.FC<AdminRSVPPageProps> = ({
             <option value="ALL">Semua Respon RSVP</option>
             <option value="Hadir">Hanya Hadir</option>
             <option value="Tidak Hadir">Hanya Tidak Hadir</option>
-            <option value="Masih Ragu">Hanya Masih Ragu</option>
           </select>
         </div>
       </div>
 
       {/* RSVP Table */}
       <div className="rounded-2xl bg-white border border-[#C5A15B]/30 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 text-xs text-gray-600 border-b border-gray-100">
+          Menampilkan {filtered.length} dari {rsvps.length} data RSVP
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#173D32] text-[#E0C782] font-royal uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3 px-4">Nama Tamu</th>
-                <th className="py-3 px-4">Status & Pax</th>
+                <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Doa & Ucapan Restu</th>
                 <th className="py-3 px-4">Waktu Konfirmasi</th>
                 <th className="py-3 px-4 text-right">Aksi</th>
@@ -224,18 +250,13 @@ export const AdminRSVPPage: React.FC<AdminRSVPPageProps> = ({
                         className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold inline-block ${
                           item.attendanceStatus === 'Hadir'
                             ? 'bg-emerald-100 text-emerald-800'
-                            : item.attendanceStatus === 'Masih Ragu'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-red-100 text-red-800'
+                            : item.attendanceStatus === 'Tidak Hadir'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-600'
                         }`}
                       >
                         {item.attendanceStatus}
                       </span>
-                      {item.attendanceStatus === 'Hadir' && item.attendeeCount > 0 && (
-                        <span className="text-[10px] text-gray-600 block mt-0.5">
-                          {item.attendeeCount} Orang
-                        </span>
-                      )}
                     </td>
 
                     <td className="py-3.5 px-4 max-w-xs">
@@ -259,14 +280,23 @@ export const AdminRSVPPage: React.FC<AdminRSVPPageProps> = ({
                     </td>
 
                     <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => openEditModal(item)}
-                        title="Perbarui Status RSVP Manual"
-                        className="py-1 px-2.5 rounded-lg border border-gray-200 hover:bg-[#FAF6EE] text-[#173D32] font-medium text-[11px] inline-flex items-center gap-1"
-                      >
-                        <Edit3 className="w-3 h-3 text-[#C5A15B]" />
-                        <span>Edit Status</span>
-                      </button>
+                      <div className="inline-flex gap-1">
+                        <button
+                          onClick={() => openEditModal(item)}
+                          title="Edit data RSVP"
+                          className="py-1 px-2.5 rounded-lg border border-gray-200 hover:bg-[#FAF6EE] text-[#173D32] font-medium text-[11px] inline-flex items-center gap-1"
+                        >
+                          <Edit3 className="w-3 h-3 text-[#C5A15B]" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item)}
+                          title="Hapus data RSVP"
+                          className="py-1.5 px-2 rounded-lg border border-red-200 hover:bg-red-50 text-red-700"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -276,16 +306,32 @@ export const AdminRSVPPage: React.FC<AdminRSVPPageProps> = ({
         </div>
       </div>
 
-      {/* Manual RSVP Status Override Modal */}
+      {/* Edit RSVP */}
       {editingRsvp && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in">
+        <div
+          onClick={() => setEditingRsvp(null)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in"
+          >
             <h2 className="font-royal text-base font-bold text-[#173D32] mb-1">
-              Perbarui Status RSVP
+              Edit Data RSVP
             </h2>
-            <p className="text-xs text-gray-500 mb-4">Tamu: {editingRsvp.guestName}</p>
 
             <div className="space-y-4 text-xs">
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">Nama Tamu</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(event) => setEditName(event.target.value)}
+                  maxLength={120}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none"
+                />
+              </div>
+
               <div>
                 <label className="block text-gray-700 font-semibold mb-1">Status Kehadiran</label>
                 <select
@@ -295,29 +341,26 @@ export const AdminRSVPPage: React.FC<AdminRSVPPageProps> = ({
                 >
                   <option value="Hadir">Hadir</option>
                   <option value="Tidak Hadir">Tidak Hadir</option>
-                  <option value="Masih Ragu">Masih Ragu</option>
                   <option value="Belum Mengonfirmasi">Belum Mengonfirmasi</option>
                 </select>
               </div>
 
-              {editStatus === 'Hadir' && (
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-1">Jumlah Hadir (Pax)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={editCount}
-                    onChange={(e) => setEditCount(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">Doa & Ucapan</label>
+                <textarea
+                  value={editWishes}
+                  onChange={(event) => setEditWishes(event.target.value)}
+                  maxLength={1000}
+                  rows={4}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none resize-y"
+                />
+              </div>
 
               <div className="pt-3 border-t border-gray-100 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setEditingRsvp(null)}
+                  disabled={isSaving}
                   className="px-4 py-2 rounded-xl border border-gray-300 text-gray-600 hover:bg-gray-50"
                 >
                   Batal
@@ -325,9 +368,10 @@ export const AdminRSVPPage: React.FC<AdminRSVPPageProps> = ({
                 <button
                   type="button"
                   onClick={handleSaveEdit}
+                  disabled={isSaving}
                   className="px-5 py-2 rounded-xl bg-[#173D32] text-[#E0C782] font-semibold hover:bg-[#235244]"
                 >
-                  Simpan Status
+                  {isSaving ? 'Menyimpan...' : 'Simpan'}
                 </button>
               </div>
             </div>

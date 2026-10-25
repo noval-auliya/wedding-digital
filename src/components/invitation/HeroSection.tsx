@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, ChevronDown } from 'lucide-react';
+import { Calendar, Clock, MapPin } from 'lucide-react';
 import { GununganIcon, RoyalDivider } from '../common/GununganIcon';
 import { WeddingSettings } from '../../types/wedding';
 
@@ -8,6 +8,8 @@ interface HeroSectionProps {
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ settings }) => {
+  const fallbackHeroImage = '/images/wedding-couple.jpeg';
+  const [heroImageSrc, setHeroImageSrc] = useState(settings.heroImageUrl || fallbackHeroImage);
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
     hours: 0,
@@ -37,16 +39,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ settings }) => {
     return () => clearInterval(interval);
   }, [settings.weddingDate]);
 
+  useEffect(() => {
+    setHeroImageSrc(settings.heroImageUrl || fallbackHeroImage);
+  }, [settings.heroImageUrl]);
+
   return (
-    <section id="hero" className="relative min-h-[90vh] flex flex-col justify-between items-center text-center p-6 bg-batik-dark text-[#F8F3E8] overflow-hidden">
+    <section id="hero" className="relative min-h-screen min-h-[100svh] flex flex-col justify-between items-center text-center p-6 bg-batik-dark text-[#F8F3E8] overflow-hidden">
       {/* Background Hero Image with dark royal overlay */}
       <div className="absolute inset-0 z-0">
         <img
-          src={settings.heroImageUrl}
+          src={heroImageSrc}
           alt="Royal Wedding Hero"
-          className="w-full h-full object-cover object-center opacity-30 mix-blend-luminosity scale-105 filter blur-[1px]"
+          className="w-full h-full object-cover object-center opacity-70 scale-105"
+          onError={() => {
+            if (heroImageSrc !== fallbackHeroImage) {
+              setHeroImageSrc(fallbackHeroImage);
+            }
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0e2720]/90 via-[#173D32]/85 to-[#0e2720]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0e2720]/55 via-[#173D32]/65 to-[#0e2720]/80" />
       </div>
 
       <div className="relative z-10 pt-6 flex flex-col items-center max-w-sm">
@@ -63,7 +74,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ settings }) => {
         </h1>
 
         <p className="text-sm font-serif-jawa italic text-[#F8F3E8]/90 max-w-xs leading-relaxed">
-          Pahargyan Ageng Dhaup Palakrama
+          Perayaan Pernikahan
         </p>
 
         <RoyalDivider className="my-4" />
@@ -110,13 +121,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ settings }) => {
         </div>
       )}
 
-      {/* Scroll Down Indicator */}
-      <div className="relative z-10 pb-2 flex flex-col items-center text-[#C5A15B]">
-        <span className="text-[10px] tracking-widest uppercase font-serif-jawa italic text-[#E0C782]/80">
-          Gulir ke Bawah
-        </span>
-        <ChevronDown className="w-4 h-4 animate-bounce mt-1 text-[#C5A15B]" />
-      </div>
+      <div className="h-8 shrink-0" aria-hidden="true" />
     </section>
   );
 };

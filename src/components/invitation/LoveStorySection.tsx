@@ -15,14 +15,14 @@ export const LoveStorySection: React.FC<LoveStorySectionProps> = ({ stories }) =
     <section id="story" className="py-12 px-6 bg-batik-subtle text-[#173D32]">
       <div className="max-w-md mx-auto text-center mb-8">
         <p className="text-xs uppercase tracking-[0.3em] text-[#997838] font-bold">
-          Lelakon Tresna
+          Perjalanan Cinta
         </p>
         <h2 className="font-royal text-2xl font-bold tracking-wider text-[#173D32] mt-1">
           Kisah Kasih Kami
         </h2>
         <RoyalDivider className="my-4" />
         <p className="text-xs text-[#2c3e35]/80 font-serif-jawa italic max-w-xs mx-auto">
-          Untaian takdir lan pitedahing Gusti ingkang nyawijekaken roso tresna
+          Kisah perjalanan yang mempertemukan kami dalam ikatan cinta
         </p>
       </div>
 
@@ -30,7 +30,7 @@ export const LoveStorySection: React.FC<LoveStorySectionProps> = ({ stories }) =
         {publishedStories.map((story) => (
           <div key={story.id} className="relative group">
             {/* Timeline Dot */}
-            <div className="absolute -left-[27px] top-1.5 w-4 h-4 rounded-full bg-[#173D32] border-2 border-[#C5A15B] shadow-md flex items-center justify-center">
+            <div className="absolute -left-[23px] top-1.5 w-4 h-4 rounded-full bg-[#173D32] border-2 border-[#C5A15B] shadow-md flex items-center justify-center">
               <div className="w-1.5 h-1.5 rounded-full bg-[#E0C782]" />
             </div>
 

@@ -4,17 +4,16 @@ import {
   Send,
   CheckCircle2,
   XCircle,
-  HelpCircle,
   Clock,
   UserPlus,
   FileEdit,
   ExternalLink,
-  Download,
   ArrowUpRight,
-  QrCode,
 } from 'lucide-react';
 import { weddingStorage } from '../../services/storage';
 import { Guest, RSVP } from '../../types/wedding';
+import { ExportActions } from '../../components/admin/ExportActions';
+import { ExportFormat, exportRecords } from '../../utils/export';
 
 interface AdminDashboardPageProps {
   onNavigateTab: (tab: any) => void;
@@ -32,33 +31,32 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [recentRSVPs, setRecentRSVPs] = useState<RSVP[]>([]);
 
   useEffect(() => {
-    setStats(weddingStorage.getStats());
-    const allGuests = weddingStorage.getGuests();
-    setRecentGuests(allGuests.slice(0, 5));
-    const allRSVPs = weddingStorage.getRSVPs();
-    setRecentRSVPs(allRSVPs.slice(0, 5));
+    const loadData = () => {
+      setStats(weddingStorage.getStats());
+      setRecentGuests(weddingStorage.getGuests().slice(0, 5));
+      setRecentRSVPs(weddingStorage.getRSVPs().slice(0, 5));
+    };
+    loadData();
+    window.addEventListener('wedding-storage-updated', loadData);
+    return () => window.removeEventListener('wedding-storage-updated', loadData);
   }, []);
 
-  const handleExportRSVP = () => {
+  const handleExportRSVP = async (format: ExportFormat) => {
     const rsvps = weddingStorage.getRSVPs();
-    const headers = ['Nama Tamu', 'Status Kehadiran', 'Jumlah Tamu', 'Doa dan Ucapan', 'Tanggal Submit'];
+    const headers = ['Nama Tamu', 'Status Kehadiran', 'Doa dan Ucapan', 'Tanggal Submit'];
     const rows = rsvps.map((r) => [
-      `"${r.guestName.replace(/"/g, '""')}"`,
-      `"${r.attendanceStatus}"`,
-      r.attendeeCount,
-      `"${(r.wishes || '').replace(/"/g, '""')}"`,
-      `"${new Date(r.submittedAt).toLocaleString('id-ID')}"`,
+      r.guestName,
+      r.attendanceStatus,
+      r.wishes || '',
+      new Date(r.submittedAt).toLocaleString('id-ID'),
     ]);
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `rekap_rsvp_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    onNotify('Data RSVP berhasil diekspor ke CSV.');
+    const filename = `rekap_rsvp_${new Date().toISOString().split('T')[0]}`;
+    try {
+      await exportRecords(format, filename, 'Rekap RSVP', headers, rows);
+      onNotify(`Data RSVP berhasil diunduh ke ${format.toUpperCase()}.`);
+    } catch {
+      onNotify(`Gagal mengekspor data RSVP ke ${format.toUpperCase()}.`);
+    }
   };
 
   return (
@@ -70,7 +68,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             Dashboard Ringkasan Undangan
           </h1>
           <p className="text-xs text-[#2c3e35]/80 font-serif-jawa italic mt-0.5">
-            Pawiwahan Ageng Raden Ajeng Sekar & Raden Mas Dimas
+            Muhammad Noval Nur Auliya & Syifau Ainul Fitri
           </p>
         </div>
 
@@ -83,13 +81,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             <span>Tambah Tamu</span>
           </button>
 
-          <button
-            onClick={handleExportRSVP}
-            className="py-2 px-3.5 rounded-xl bg-white border border-[#C5A15B] text-[#173D32] text-xs font-semibold flex items-center gap-1.5 hover:bg-[#FAF6EE] shadow-sm transition-all"
-          >
-            <Download className="w-3.5 h-3.5 text-[#C5A15B]" />
-            <span>Ekspor RSVP</span>
-          </button>
+          <ExportActions onExport={handleExportRSVP} label="Ekspor RSVP" />
 
           <button
             onClick={onNavigateHome}
@@ -102,7 +94,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3.5">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
         <div className="p-4 rounded-2xl bg-white border border-[#C5A15B]/30 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between text-gray-500 mb-2">
             <span className="text-[11px] font-medium uppercase tracking-wider">Total Tamu</span>
@@ -132,9 +124,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           </div>
           <div>
             <span className="font-royal text-2xl font-bold text-emerald-700">{stats.attendingCount}</span>
-            <span className="text-[10px] text-emerald-600 font-semibold block mt-0.5">
-              ~{stats.totalAttendingPax} Perkiraan Pax
-            </span>
           </div>
         </div>
 
@@ -151,17 +140,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
         <div className="p-4 rounded-2xl bg-white border border-[#C5A15B]/30 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between text-gray-500 mb-2">
-            <span className="text-[11px] font-medium uppercase tracking-wider">Masih Ragu</span>
-            <HelpCircle className="w-4 h-4 text-amber-500" />
-          </div>
-          <div>
-            <span className="font-royal text-2xl font-bold text-amber-600">{stats.undecidedCount}</span>
-            <span className="text-[10px] text-gray-500 block mt-0.5">Menunggu kepastian</span>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white border border-[#C5A15B]/30 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-gray-500 mb-2">
             <span className="text-[11px] font-medium uppercase tracking-wider">Belum Konfirmasi</span>
             <Clock className="w-4 h-4 text-gray-400" />
           </div>
@@ -171,19 +149,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           </div>
         </div>
 
-        <div
-          onClick={() => onNavigateTab('checkin')}
-          className="p-4 rounded-2xl bg-gradient-to-br from-[#173D32] to-[#0e2720] text-[#F8F3E8] border border-[#C5A15B] shadow-sm flex flex-col justify-between cursor-pointer hover:shadow-md transition-all col-span-2 md:col-span-1"
-        >
-          <div className="flex items-center justify-between text-[#E0C782] mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Hadir di Lokasi</span>
-            <QrCode className="w-4 h-4 text-[#C5A15B]" />
-          </div>
-          <div>
-            <span className="font-royal text-2xl font-bold text-[#E0C782]">{stats.checkedInCount || 0}</span>
-            <span className="text-[10px] text-emerald-300 font-medium block mt-0.5">Presensi QR Meja</span>
-          </div>
-        </div>
       </div>
 
       {/* Two columns: Recent RSVPs & Recent Guests */}
@@ -219,12 +184,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                         className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
                           r.attendanceStatus === 'Hadir'
                             ? 'bg-emerald-100 text-emerald-800'
-                            : r.attendanceStatus === 'Masih Ragu'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-red-100 text-red-800'
+                            : r.attendanceStatus === 'Tidak Hadir'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-600'
                         }`}
                       >
-                        {r.attendanceStatus} {r.attendanceStatus === 'Hadir' && `(${r.attendeeCount} pax)`}
+                        {r.attendanceStatus}
                       </span>
                     </div>
                     {r.wishes && (
