@@ -90,6 +90,9 @@ export interface LoveStoryEntry {
   storyDate: string; // e.g. "Januari 2021"
   description: string;
   imageUrl?: string;
+  imageFit?: 'contain' | 'cover';
+  imagePositionX?: number;
+  imagePositionY?: number;
   displayOrder: number;
   isPublished: boolean;
 }

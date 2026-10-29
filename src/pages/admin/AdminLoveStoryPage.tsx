@@ -17,6 +17,9 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
   const [storyDate, setStoryDate] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [imageFit, setImageFit] = useState<'contain' | 'cover'>('cover');
+  const [imagePositionX, setImagePositionX] = useState(50);
+  const [imagePositionY, setImagePositionY] = useState(50);
   const [isPublished, setIsPublished] = useState(true);
 
   const loadData = () => {
@@ -38,6 +41,9 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
     setStoryDate('');
     setDescription('');
     setImageUrl('');
+    setImageFit('cover');
+    setImagePositionX(50);
+    setImagePositionY(50);
     setIsPublished(true);
     setIsModalOpen(true);
   };
@@ -48,6 +54,9 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
     setStoryDate(s.storyDate);
     setDescription(s.description);
     setImageUrl(s.imageUrl || '');
+    setImageFit(s.imageFit ?? 'cover');
+    setImagePositionX(s.imagePositionX ?? 50);
+    setImagePositionY(s.imagePositionY ?? 50);
     setIsPublished(s.isPublished);
     setIsModalOpen(true);
   };
@@ -65,6 +74,9 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
       storyDate: storyDate.trim(),
       description: description.trim(),
       imageUrl: imageUrl.trim() || undefined,
+      imageFit,
+      imagePositionX,
+      imagePositionY,
       displayOrder: editingStory ? editingStory.displayOrder : stories.length + 1,
       isPublished,
     });
@@ -113,7 +125,12 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
           >
             {story.imageUrl && (
               <div className="w-full sm:w-28 h-24 rounded-xl overflow-hidden shrink-0 border border-gray-100">
-                <img src={story.imageUrl} alt={story.title} className="w-full h-full object-cover" />
+                <img
+                  src={story.imageUrl}
+                  alt={story.title}
+                  className={`w-full h-full ${story.imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
+                  style={{ objectPosition: `${story.imagePositionX ?? 50}% ${story.imagePositionY ?? 50}%` }}
+                />
               </div>
             )}
 
@@ -159,7 +176,7 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
         >
           <div
             onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-[#C5A15B]/40 animate-in fade-in"
+            className="flex max-h-[calc(100vh-2rem)] max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-[#C5A15B]/40 bg-white p-6 shadow-2xl animate-in fade-in"
           >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <h2 className="font-royal text-base font-bold text-[#173D32]">
@@ -170,7 +187,7 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-3 mt-4 text-xs">
+            <form onSubmit={handleSave} className="min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-3.5 mt-4 text-xs">
               <div>
                 <label className="block text-gray-700 font-semibold mb-1">Judul Momen *</label>
                 <input
@@ -215,7 +232,78 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
                   onChange={(e) => setImageUrl(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-gray-300 font-mono text-[11px] focus:outline-none"
                 />
+                {imageUrl && (
+                  <div className="mt-2 aspect-video rounded-xl overflow-hidden border border-gray-200 bg-[#0e2720]">
+                    <img
+                      src={imageUrl}
+                      alt="Preview foto kisah cinta"
+                      className={`w-full h-full ${imageFit === 'cover' ? 'object-cover' : 'object-contain'}`}
+                      style={{ objectPosition: `${imagePositionX}% ${imagePositionY}%` }}
+                    />
+                  </div>
+                )}
               </div>
+
+              <fieldset>
+                <legend className="block text-gray-700 font-semibold mb-1">Tampilan Foto</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={`rounded-xl border p-2 cursor-pointer ${imageFit === 'contain' ? 'border-[#173D32] bg-[#173D32]/5' : 'border-gray-200'}`}>
+                    <input
+                      type="radio"
+                      name="storyImageFit"
+                      value="contain"
+                      checked={imageFit === 'contain'}
+                      onChange={() => setImageFit('contain')}
+                      className="sr-only"
+                    />
+                    <span className="block font-semibold text-gray-700">Foto utuh</span>
+                    <span className="block text-[10px] text-gray-500">Tidak terpotong</span>
+                  </label>
+                  <label className={`rounded-xl border p-2 cursor-pointer ${imageFit === 'cover' ? 'border-[#173D32] bg-[#173D32]/5' : 'border-gray-200'}`}>
+                    <input
+                      type="radio"
+                      name="storyImageFit"
+                      value="cover"
+                      checked={imageFit === 'cover'}
+                      onChange={() => setImageFit('cover')}
+                      className="sr-only"
+                    />
+                    <span className="block font-semibold text-gray-700">Penuhi bingkai</span>
+                    <span className="block text-[10px] text-gray-500">Sebagian foto bisa terpotong</span>
+                  </label>
+                </div>
+              </fieldset>
+
+              {imageFit === 'cover' && (
+                <fieldset className="space-y-2">
+                  <legend className="block text-gray-700 font-semibold mb-1">Atur Bagian Foto yang Tampil</legend>
+                  <p className="text-[10px] text-gray-500">
+                    Geser pengatur dan lihat preview untuk memilih bagian yang terlihat pada kisah cinta.
+                  </p>
+                  <label className="block text-gray-700">
+                    Kiri - kanan: <span className="font-semibold">{imagePositionX}%</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={imagePositionX}
+                      onChange={(event) => setImagePositionX(Number(event.target.value))}
+                      className="block w-full accent-[#173D32]"
+                    />
+                  </label>
+                  <label className="block text-gray-700">
+                    Atas - bawah: <span className="font-semibold">{imagePositionY}%</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={imagePositionY}
+                      onChange={(event) => setImagePositionY(Number(event.target.value))}
+                      className="block w-full accent-[#173D32]"
+                    />
+                  </label>
+                </fieldset>
+              )}
 
               <div className="flex items-center gap-2 pt-1">
                 <input
@@ -230,7 +318,7 @@ export const AdminLoveStoryPage: React.FC<AdminLoveStoryPageProps> = ({ onNotify
                 </label>
               </div>
 
-              <div className="pt-3 border-t border-gray-100 flex justify-end gap-2">
+              <div className="sticky bottom-0 flex justify-end gap-2 border-t border-gray-100 bg-white pt-3 pb-1">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}

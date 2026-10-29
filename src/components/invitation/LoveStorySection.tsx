@@ -49,7 +49,11 @@ export const LoveStorySection: React.FC<LoveStorySectionProps> = ({ stories }) =
                   <img
                     src={story.imageUrl}
                     alt={story.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className={`w-full h-full ${story.imageFit === 'contain' ? 'object-contain' : 'object-cover'} group-hover:scale-105 transition-transform duration-500`}
+                    style={{
+                      objectPosition: `${story.imagePositionX ?? 50}% ${story.imagePositionY ?? 50}%`,
+                      transformOrigin: `${story.imagePositionX ?? 50}% ${story.imagePositionY ?? 50}%`,
+                    }}
                   />
                 </div>
               )}
