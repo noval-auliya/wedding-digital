@@ -62,7 +62,10 @@ export const PublicInvitationPage: React.FC<PublicInvitationPageProps> = ({
 
   useEffect(() => {
     const title = `${settings.brideNickname} & ${settings.groomNickname} | Undangan Pernikahan`;
-    const imageUrl = getPublicAssetUrl(settings.heroImageUrl, '/images/wedding-couple.jpeg');
+    const imageUrl = getPublicAssetUrl(
+      '/images/wedding-share-preview.jpeg',
+      '/images/wedding-share-preview.jpeg',
+    );
     const faviconUrl = getPublicAssetUrl(settings.faviconUrl, '/images/gunungan-emas.svg');
     const description =
       (settings.openingMessage || '').trim().slice(0, 200)
@@ -73,6 +76,13 @@ export const PublicInvitationPage: React.FC<PublicInvitationPageProps> = ({
     setMetaContent('property', 'og:description', description);
     setMetaContent('property', 'og:url', window.location.href);
     setMetaContent('property', 'og:image', imageUrl);
+    setMetaContent('property', 'og:image:width', '1023');
+    setMetaContent('property', 'og:image:height', '1023');
+    setMetaContent(
+      'property',
+      'og:image:alt',
+      'Foto Noval dan Syifau mengenakan busana adat pernikahan',
+    );
     setMetaContent('name', 'twitter:title', title);
     setMetaContent('name', 'twitter:description', description);
     setMetaContent('name', 'twitter:image', imageUrl);

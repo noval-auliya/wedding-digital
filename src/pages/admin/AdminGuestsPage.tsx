@@ -161,23 +161,24 @@ export const AdminGuestsPage: React.FC<AdminGuestsPageProps> = ({
   const copyWhatsAppMessage = (guest: Guest) => {
     const settings = weddingStorage.getSettings();
     const link = getPersonalizedUrl(guest.slug);
-    const message = `Yth. ${guest.fullName}${guest.institution ? ` (${guest.institution})` : ''},
+    const message = `Assalamualaikum Warahmatullahi Wabarakatuh
+Bismillahirrahmanirrahim.
 
-Dengan memohon rahmat Tuhan, kami sekeluarga mengundang Anda untuk menghadiri pernikahan putra-putri kami:
+Yth. ${guest.fullName}
 
-${settings.brideNickname} & ${settings.groomNickname}
+Tanpa mengurangi rasa hormat, perkenankan kami mengundang Bapak/Ibu/Saudara/i, teman sekaligus sahabat, untuk menghadiri acara pernikahan kami:
 
-Acara akan diselenggarakan pada ${new Date(settings.weddingDate).toLocaleDateString('id-ID', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })}.
+${settings.groomNickname} & ${settings.brideNickname}
 
-Untuk informasi lengkap dan konfirmasi kehadiran, silakan buka tautan undangan berikut:
+Berikut link undangan kami untuk info lengkap dari acara bisa kunjungi:
+
 ${link}
 
-Terima kasih atas perhatian dan doa Anda.`;
+Merupakan suatu kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan untuk hadir dan/atau memberikan doa restu.
+
+Mohon maaf perihal undangan hanya dibagikan melalui pesan ini. Tanpa mengurangi rasa hormat kami 🙏🏻.
+
+Wassalamualaikum Warahmatullahi Wabarakatuh`;
 
     navigator.clipboard.writeText(message).then(() => {
       let phoneClean = (guest.phone || '').replace(/\D/g, '');
